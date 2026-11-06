@@ -8,7 +8,7 @@ import { activeJobs } from '../export/queue';
 import { listSnapshots } from '../io/store';
 import { cancelPen, deleteSelectedNode, finishPen, nodeSel, penDraft, setTool, TOOLS, tool } from './tools';
 import { pause, play, playing, seek, step, togglePlay } from './playback';
-import { Viewer, mbPreview } from './Viewer';
+import { Viewer, mbPreview, previewQuality, setPreviewQuality, type Quality } from './Viewer';
 import { Timeline } from './Timeline';
 import { LayersPanel } from './LayersPanel';
 import { Inspector } from './Inspector';
@@ -16,6 +16,8 @@ import { ExportDialog } from './ExportDialog';
 import { EffectsPanel } from './EffectsPanel';
 import { PresetsPanel } from './PresetsPanel';
 import { AssetsPanel } from './AssetsPanel';
+import { HelpDialog } from './HelpDialog';
+import { useDialog } from '../ui/dialog';
 import { FPS_PRESETS, SIZE_PRESETS, fromHex, timecode, toHex } from '../model/project';
 
 type Tab = 'inspector' | 'effects' | 'presets' | 'assets';
@@ -64,6 +66,8 @@ export function Editor() {
   const s = p.settings;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === '?' && !typing(e.target)) { e.preventDefault(); setHelpOpen(true); } }; addEventListener('keydown', k); return () => removeEventListener('keydown', k); }, []);
   const [tab, setTab] = useState<Tab>('inspector');
   useShortcuts();
   useEffect(() => () => pause(), []);
@@ -85,6 +89,7 @@ export function Editor() {
         <button class="btn" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')}>Timeline</button>
         <button class="btn" aria-pressed={panels.value.right} onClick={() => toggle('right')}>Panel</button>
         <button class="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
+        <button class="btn" aria-label="Help and shortcuts" onClick={() => setHelpOpen(true)}>?</button>
         <button class="btn primary" onClick={() => setExportOpen(true)}>Export{activeJobs() ? ` ●${activeJobs()}` : ''}</button>
       </header>
 
@@ -115,6 +120,7 @@ export function Editor() {
       <section class="timeline"><Timeline /></section>
 
       {notice.value && <div class="toast" role="status"><span>{notice.value}</span><button class="btn sm" onClick={() => (notice.value = '')}>OK</button></div>}
+      {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
@@ -123,13 +129,14 @@ export function Editor() {
 
 function SettingsDialog({ onClose }: { onClose: () => void }) {
   const s = current.value!.settings;
+  const dlg = useDialog<HTMLDivElement>(onClose);
   const [snaps, setSnaps] = useState<{ t: number; size: number }[]>([]);
   useEffect(() => { void listSnapshots(current.peek()!.id).then(setSnaps).catch(() => undefined); }, []);
   const num = (k: 'width' | 'height' | 'fps' | 'duration') => (e: Event) =>
     setSettings({ [k]: Number((e.target as HTMLInputElement).value) });
   return (
     <div class="scrim" onClick={onClose}>
-      <div class="dialog" role="dialog" aria-modal="true" aria-label="Project settings" onClick={(e) => e.stopPropagation()}>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Project settings" ref={dlg} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <h2>Project settings</h2>
         <label>Size preset
           <select onChange={(e) => {
@@ -153,6 +160,11 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
         </div>
         <label>Background colour
           <input type="color" value={toHex(s.bg)} onInput={(e) => setSettings({ bg: fromHex((e.target as HTMLInputElement).value, s.bg[3]) })} />
+        </label>
+        <label>Preview quality
+          <select value={String(previewQuality.value)} onChange={(e) => { const v = (e.target as HTMLSelectElement).value; setPreviewQuality(v === 'auto' ? 'auto' : (Number(v) as Quality)); }}>
+            <option value="auto">Auto (adapts to keep playback smooth)</option><option value="1">Full</option><option value="0.5">Half</option><option value="0.25">Quarter</option>
+          </select>
         </label>
         <label class="check"><input type="checkbox" checked={!!s.motionBlur?.on} onChange={(e) => setSettings({ motionBlur: { on: (e.target as HTMLInputElement).checked, shutter: s.motionBlur?.shutter ?? 180, samples: s.motionBlur?.samples ?? 12 } })} /> Motion blur on export</label>
         {s.motionBlur?.on && <div class="two">

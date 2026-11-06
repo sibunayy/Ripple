@@ -7,7 +7,7 @@ import type { BlendMode } from '../render/blend';
 import { createEffect, paramKey, type Curves } from '../render/effects';
 import { GALLERY, parseUniforms, syncUniformProps } from '../render/shader';
 import { applyPreset, type Preset } from '../anim/presets';
-import { TEMPLATES, type AnimShape, type AnimUnit } from '../text/animate';
+import { TEMPLATES, animatorProps, type AnimShape, type AnimUnit } from '../text/animate';
 import { maskProp } from '../render/masks';
 import { layerBox } from '../shape/geometry';
 import { shapePath } from '../shape/geometry';
@@ -194,13 +194,6 @@ export function setShaderCode(layerId: string, effectId: string | null, code: st
     return { ...l, shader: { code }, props: syncUniformProps(l.props, 'sh:', decls) };
   }, `shader:${layerId}:${effectId ?? ''}`);
 }
-
-const animatorProps = (id: string, start: number, end: number, p: Record<string, number | number[]>): Record<string, Prop<any>> => ({
-  [`ta:${id}:start`]: { value: start }, [`ta:${id}:end`]: { value: end }, [`ta:${id}:offset`]: { value: 0 },
-  [`ta:${id}:position`]: { value: p.position ?? [0, 0] }, [`ta:${id}:scale`]: { value: p.scale ?? [100, 100] },
-  [`ta:${id}:rotation`]: { value: p.rotation ?? 0 }, [`ta:${id}:opacity`]: { value: p.opacity ?? 100 },
-  [`ta:${id}:color`]: { value: [1, 0.4, 0.4, 1] },
-});
 
 /** Add a text animator from a template and key its offset so the window sweeps across the text (from the playhead). */
 export function addTextAnimator(layerId: string, templateId: string | null) {
@@ -594,6 +587,15 @@ function open(p: Project) {
 
 export async function newProject(): Promise<void> {
   const p = createProject(`Untitled ${library.value.length + 1}`);
+  await saveProject(p);
+  open(p);
+  await refreshLibrary();
+}
+
+export async function newFromTemplate(id: string): Promise<void> {
+  const { STARTERS } = await import('./templates');
+  const t = STARTERS.find((x) => x.id === id); if (!t) return;
+  const p = t.build();
   await saveProject(p);
   open(p);
   await refreshLibrary();

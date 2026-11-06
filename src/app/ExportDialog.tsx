@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { useDialog } from '../ui/dialog';
 import { current, frame, rootProject } from './state';
 import { workRange } from '../model/project';
 import { KIND_INFO, type ExportKind } from '../export/export';
@@ -13,6 +14,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const [range, setRange] = useState<'work' | 'all'>('work');
   const [fps, setFps] = useState(0);
   const [transparent, setTransparent] = useState(false);
+  const dlg = useDialog<HTMLDivElement>(onClose);
   const p = current.value!;
   const info = KIND_INFO[kind];
   const [a, b] = workRange(p);
@@ -27,7 +29,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div class="scrim" onClick={onClose}>
-      <div class="dialog" role="dialog" aria-modal="true" aria-label="Export" onClick={(e) => e.stopPropagation()}>
+      <div class="dialog" role="dialog" aria-modal="true" aria-label="Export" ref={dlg} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <h2>Export</h2>
         <label>Format
           <select value={kind} onChange={(e) => setKind((e.target as HTMLSelectElement).value as ExportKind)}>

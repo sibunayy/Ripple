@@ -30,6 +30,7 @@ try {
       page.on('pageerror', (e) => errors.push(e.message));
       page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
       await page.addInitScript(PRELUDE);
+      await page.addInitScript(() => { try { if (!sessionStorage.getItem('rf-e2e-first')) { localStorage.setItem('rf-onboarded-v1', '1'); } } catch { /* ignore */ } });
       await page.goto(URL_);
       await page.click('text=New project'); await page.waitForSelector('.editor'); await page.waitForFunction(() => window.__ripple?.renderer);
       try {

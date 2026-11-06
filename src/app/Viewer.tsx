@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { effect, signal } from '@preact/signals';
-import { importMedia, addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText } from './state';
+import { flush, saveState, importMedia, addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText } from './state';
 import { editingText, finishPen, nodeSel, penDraft, setTool, tool, TOOLS, type Tool } from './tools';
 import { distToPoly, flatten, insertNode, moveHandle, moveNode, nearestOnPath, node as mkNode } from '../shape/path';
 import { layoutText, fontString, textStyle } from '../text/metrics';
@@ -19,7 +19,7 @@ const MAX_BUFFER = 2560; // longest side of the preview buffer; the canvas is CS
 const MIN_ZOOM = 0.05, MAX_ZOOM = 16;
 interface View { zoom: number; x: number; y: number; fit: boolean }
 
-declare global { interface Window { __ripple?: { renderer?: GLRenderer; doc?: () => import('../model/project').Project; load?: (p: import('../model/project').Project) => void; lottie?: () => Promise<unknown> } } }
+declare global { interface Window { __ripple?: { renderer?: GLRenderer; doc?: () => import('../model/project').Project; load?: (p: import('../model/project').Project) => void; save?: () => Promise<void>; lottie?: () => Promise<unknown> } } }
 
 export function Viewer() {
   const wrap = useRef<HTMLDivElement>(null);
@@ -50,22 +50,35 @@ export function Viewer() {
   useEffect(() => {
     let r: GLRenderer;
     try { r = new GLRenderer(canvas.current!); } catch (e) { setError(String((e as Error).message)); return; }
-    renderer.current = r; window.__ripple = { renderer: r, doc: () => current.peek()!, load: (p) => { current.value = p; }, lottie: async () => (await (await import('../lottie/export')).exportLottie(current.peek()!)).json };
-    let queued = 0;
+    renderer.current = r; window.__ripple = { renderer: r, doc: () => current.peek()!, load: (p) => { current.value = p; }, save: () => { saveState.value = 'dirty'; return flush(); }, lottie: async () => (await (await import('../lottie/export')).exportLottie(current.peek()!)).json };
+    let queued = 0, lastStart = 0, slow = 0, fast = 0, step = 0, avgInt = 16.7, avgCpu = 0;
     const draw = () => {
       queued = 0;
+      const t0 = performance.now();
+      if (playing.peek() && lastStart) {
+        const dt = t0 - lastStart; avgInt = avgInt * 0.9 + dt * 0.1;
+        if (previewQuality.peek() === 'auto') { // keep playback near the display rate by trading resolution
+          if (dt > 24) { slow++; fast = 0; } else if (dt < 18) { fast++; slow = 0; } else { slow = 0; fast = 0; }
+          if (slow >= 20 && step < STEPS.length - 1) { step++; slow = 0; } else if (fast >= 120 && step > 0) { step--; fast = 0; }
+        }
+      }
+      lastStart = playing.peek() ? t0 : 0;
+      const qf = previewQuality.peek() === 'auto' ? STEPS[step]! : (previewQuality.peek() as number);
       const p = current.peek(); if (!p) return;
       const { width, height, bg } = p.settings;
-      const k = Math.min(1, MAX_BUFFER / Math.max(width, height));
+      const k = Math.min(1, MAX_BUFFER / Math.max(width, height)) * qf;
       r.resize(Math.round(width * k), Math.round(height * k));
       // Render in comp space; scale to the buffer via the resolution uniform.
       const t = playhead.peek();
       syncVideos(p.layers, p.comps, t, p.settings.fps, playing.peek());
+      const c0 = performance.now();
       r.render(p.layers, { width, height, bg, t, comps: p.comps, fps: p.settings.fps, linear: p.settings.linearLight, motionBlur: p.settings.motionBlur?.on && mbPreview.value ? { shutter: p.settings.motionBlur.shutter, samples: Math.min(4, p.settings.motionBlur.samples) } : undefined });
+      hudTick(performance.now() - c0, Math.round(width * k), Math.round(height * k));
     };
     const schedule = () => { if (!queued) queued = requestAnimationFrame(draw); };
+    const hudTick = (cpu: number, w: number, h: number) => { avgCpu = avgCpu * 0.8 + cpu * 0.2; if (showHud.peek()) hudText.value = `${playing.peek() ? (1000 / avgInt).toFixed(0) : '–'} fps · cpu ${avgCpu.toFixed(1)} ms\nbuffer ${w}×${h}${previewQuality.peek() === 'auto' ? ` (auto ×${STEPS[step]})` : ''}\nRTs ${r.stats.rts} · passes ${r.stats.passes}`; };
     r.onRestore = schedule;
-    const stop = effect(() => { current.value; playhead.value; fontRev.value; mediaRev.value; playing.value; mbPreview.value; schedule(); });
+    const stop = effect(() => { current.value; playhead.value; fontRev.value; mediaRev.value; playing.value; mbPreview.value; previewQuality.value; schedule(); });
     return () => { stop(); cancelAnimationFrame(queued); renderer.current = null; };
   }, []);
 
@@ -127,8 +140,11 @@ export function Viewer() {
     drag.current = { kind: 'create', tool: t, id, start: c, sx: e.clientX, sy: e.clientY, moved: false };
   };
 
+  const lastPen = useRef(0);
   const onDown = (e: PointerEvent) => {
     if ((e.target as HTMLElement).closest?.('.tools, .zoombar, .tbox')) return;
+    if (e.pointerType === 'pen') lastPen.current = performance.now();
+    else if (e.pointerType === 'touch' && performance.now() - lastPen.current < 1500) return; // palm rejection while drawing with the Pencil
     wrap.current!.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, local(e));
     if (pointers.current.size === 2) {
@@ -215,6 +231,7 @@ export function Viewer() {
   };
 
   const onMove = (e: PointerEvent) => {
+    if (e.pointerType === 'pen') lastPen.current = performance.now();
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, local(e));
     const g = gesture.current;
@@ -315,18 +332,19 @@ export function Viewer() {
   });
 
   const zoomBy = (f: number) => { const el = wrap.current!; zoomAt(el.clientWidth / 2, el.clientHeight / 2, f); };
-  const k = Math.min(1, MAX_BUFFER / Math.max(s.width, s.height));
 
   return (
     <div class="viewport" ref={wrap} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length) void importMedia(fs); }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
       <div class="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
-        <canvas ref={canvas} width={Math.round(s.width * k)} height={Math.round(s.height * k)} aria-label="Composition viewer" />
+        <canvas ref={canvas} aria-label="Composition viewer" />
         <Overlay zoom={view.zoom} />
         <TextEditor />
       </div>
       <Tools />
+      {showHud.value && <div class="hud" aria-hidden="true">{hudText.value}</div>}
       {error && <p class="gl-error" role="alert">Rendering unavailable: {error}</p>}
       <div class="zoombar">
+        <button class="btn sm" aria-pressed={showHud.value} aria-label="Performance overlay" title="Performance overlay" onClick={() => (showHud.value = !showHud.value)}>ƒ</button>
         <button class="btn sm" onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">−</button>
         <button class="btn sm" onClick={() => setView(fitView())}>{Math.round(view.zoom * 100)}%</button>
         <button class="btn sm" onClick={() => zoomBy(1.25)} aria-label="Zoom in">＋</button>
@@ -467,6 +485,14 @@ function MotionPath({ layer, px }: { layer: Layer; px: number }) {
 const guides = signal<{ x?: number; y?: number }>({});
 /** Preview motion blur in the viewer (4 samples max); exports always use the project's full setting. */
 export const mbPreview = signal(false);
+/** Preview resolution: 'auto' adapts to keep playback smooth (spec §10); numbers are fixed fractions of full size. */
+export type Quality = 'auto' | 1 | 0.5 | 0.25;
+const storedQ = (() => { try { const v = localStorage.getItem('rf-quality'); return v === 'auto' || v === null ? 'auto' : (Number(v) as Quality); } catch { return 'auto'; } })();
+export const previewQuality = signal<Quality>(storedQ);
+export const setPreviewQuality = (q: Quality) => { previewQuality.value = q; try { localStorage.setItem('rf-quality', String(q)); } catch { /* ignore */ } };
+export const showHud = signal(false);
+const hudText = signal('');
+const STEPS = [1, 0.75, 0.5, 0.35, 0.25];
 const layerBoxOf = (r: ReturnType<typeof evaluate>[number], t: number) => layerBox(r.layer, t);
 /** Rotation handle: 28 screen px beyond the middle of the top edge. */
 function rotHandle(cs: Vec2[], zoom: number): Vec2 {
