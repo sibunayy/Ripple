@@ -7,6 +7,8 @@ import type { ColorRGBA } from '../model/project';
 import type { Ctx, GLRenderer, RT } from './gl';
 import { FULLSCREEN_VS } from './gl';
 import { identityLut, lutRGBA, type Lut3D } from './lut';
+import { GALLERY, parseUniforms } from './shader';
+import { pv } from '../shape/geometry';
 
 export type ParamKind = 'number' | 'color' | 'vec2' | 'select';
 export interface ParamDef { key: string; label: string; kind: ParamKind; def: number | ColorRGBA | Vec2; min?: number; max?: number; step?: number; options?: string[]; center?: boolean }
@@ -21,7 +23,7 @@ export interface EffectDef {
   lut?: boolean;
   /** Uses a 3D LUT stored in `effect.data` (Lut3D). */
   lut3?: boolean;
-  run?: (r: GLRenderer, rt: RT, v: Values, ctx: Ctx, e: Effect) => RT;
+  run?: (r: GLRenderer, rt: RT, v: Values, ctx: Ctx, e: Effect, l: Layer) => RT;
 }
 export type Values = Record<string, number | number[]>;
 
@@ -109,6 +111,8 @@ export const EFFECTS: EffectDef[] = [
   { type: 'dropShadow', name: 'Drop Shadow', category: 'Stylise', mode: 'custom', params: [C('color', 'Colour', [0, 0, 0, 1]), N('opacity', 'Opacity', 70, 0, 100), N('angle', 'Direction', 90, -180, 180), N('distance', 'Distance', 24, 0, 400), N('softness', 'Softness', 20, 0, 200, 0.5)],
     run: (r, rt, v, ctx) => r.dropShadow(rt, v.color as number[], (v.opacity as number) / 100, v.angle as number, (v.distance as number) * ctx.k, (v.softness as number) * ctx.k * 0.5) },
 ];
+EFFECTS.push({ type: 'shader', name: 'Custom Shader', category: 'Generate', mode: 'custom', params: [],
+  run: (r, rt, _v, ctx, e, l) => { const code = (e.data as { code: string } | undefined)?.code ?? ''; return r.shaderEffect(rt, code, ctx, (d) => pv(l, paramKey(e.id, d.name), ctx.t, d.def as number)); } });
 export const EFFECT_BY_TYPE = new Map(EFFECTS.map((e) => [e.type, e]));
 
 export const paramKey = (id: string, key: string) => `fx:${id}:${key}`;
@@ -125,6 +129,7 @@ export function createEffect(type: string, comp: { width: number; height: number
   const effect: Effect = { id, type, enabled: true };
   if (type === 'curves') effect.data = defaultCurves();
   if (type === 'lut3d') effect.data = identityLut();
+  if (type === 'shader') { const code = GALLERY.find((g) => g.name.startsWith('CRT'))!.code; effect.data = { code }; for (const d of parseUniforms(code)) props[paramKey(id, d.name)] = { value: d.def }; }
   return { effect, props };
 }
 
@@ -278,7 +283,7 @@ export function effectsInput(r: GLRenderer, l: Layer, rt: RT, ctx: Ctx): RT {
       const out = r.getRT(cur.w, cur.h);
       r.runPass(built.prog, out, [cur.tex], () => setUniforms(r, built, vals, [fx[i]!], ctx, cur));
       r.release(cur); cur = out; i++;
-    } else { cur = def.run!(r, cur, valuesOf(l, fx[i]!, def, ctx.t), ctx, fx[i]!); i++; }
+    } else { cur = def.run!(r, cur, valuesOf(l, fx[i]!, def, ctx.t), ctx, fx[i]!, l); i++; }
   }
   return cur;
 }

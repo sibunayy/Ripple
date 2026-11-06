@@ -4,7 +4,9 @@ import { NumField } from '../ui/NumField';
 import { hasKeyAt, isAnimated } from '../anim/interp';
 import { fromHex, toHex, type ColorRGBA } from '../model/project';
 import { parseCube, type Lut3D } from '../render/lut';
-import { notice, setEffectData } from './state';
+import { notice, setEffectData, setShaderCode } from './state';
+import { ShaderEditor } from './ShaderEditor';
+import { parseUniforms } from '../render/shader';
 import { propOf, type Layer, type Vec2 } from '../model/layer';
 import { EFFECTS, EFFECT_BY_TYPE, defaultCurves, curveLUT, paramKey, type Curves, type ParamDef } from '../render/effects';
 
@@ -35,7 +37,8 @@ export function EffectsPanel() {
               <button class="btn sm" disabled={i === all.length - 1} aria-label="Move effect down" onClick={() => moveEffect(l.id, e.id, 1)}>↓</button>
               <button class="btn sm danger" aria-label="Remove effect" onClick={() => removeEffect(l.id, e.id)}>✕</button>
             </div>
-            {def.params.map((pd) => <Param key={pd.key} layer={l} effectId={e.id} def={pd} t={t} />)}
+            {def.type === 'shader' && <ShaderEditor code={(e.data as { code: string } | undefined)?.code ?? ''} onCode={(c) => setShaderCode(l.id, e.id, c)} />}
+            {(def.type === 'shader' ? parseUniforms((e.data as { code: string } | undefined)?.code ?? '').map((d): ParamDef => ({ key: d.name, label: d.name, kind: d.type === 'vec2' ? 'vec2' : d.type === 'color' ? 'color' : 'number', def: d.def as number, min: d.min, max: d.max, step: d.type === 'float' ? (d.max - d.min) / 100 : 1 })) : def.params).map((pd) => <Param key={pd.key} layer={l} effectId={e.id} def={pd} t={t} />)}
             {def.type === 'lut3d' && <LutPicker layerId={l.id} effectId={e.id} lut={e.data as Lut3D | undefined} />}
             {def.type === 'curves' && <CurvesEditor layer={l} effectId={e.id} data={(e.data as Curves) ?? defaultCurves()} />}
           </section>

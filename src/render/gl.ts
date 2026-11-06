@@ -10,6 +10,8 @@ import { BLEND_GLSL, blendIndex } from './blend';
 import { maskCanvas } from './masks';
 import { effectsInput } from './effects';
 import type { Layer } from '../model/layer';
+import { formatShaderLog, parseUniforms, shaderErrors, wrapShader, type UniformDecl } from './shader';
+import { pv } from '../shape/geometry';
 import { imageFor, videoFor } from './media';
 
 const QVS = `#version 300 es
@@ -126,6 +128,8 @@ export class GLRenderer {
   /** Media textures (images uploaded once, video re-uploaded when its frame changes); LRU under a byte budget. */
   private mediaTex = new Map<string, { tex: WebGLTexture; ver: string; bytes: number }>();
   mediaBudget = 384 * 1024 * 1024;
+  private shaders = new Map<string, { prog: Prog | null; decls: UniformDecl[] }>();
+  private emptyTex: WebGLTexture | null = null;
   lost = false;
   stats = { passes: 0, rts: 0 };
 
@@ -174,7 +178,7 @@ export class GLRenderer {
       shComp: this.program(FVS, SH_COMP_FS, ['u_src', 'u_sh', 'u_off']),
     };
     this.floatOK = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
-    this.pool.clear(); this.maskTex = null; this.rasterTex = null; this.mediaTex.clear(); this.stats.rts = 0;
+    this.pool.clear(); this.maskTex = null; this.rasterTex = null; this.mediaTex.clear(); this.shaders.clear(); this.emptyTex = null; this.stats.rts = 0;
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
@@ -373,6 +377,45 @@ export class GLRenderer {
     return e.tex;
   }
 
+  // ---- user shaders --------------------------------------------------------------------------------------
+
+  /** Compile (and cache) a user shader. On failure `prog` is null and the errors are published to `shaderErrors`. */
+  shaderProgram(code: string): { prog: Prog | null; decls: UniformDecl[] } {
+    const hit = this.shaders.get(code); if (hit) return hit;
+    const decls = parseUniforms(code), src = wrapShader(code, decls);
+    let prog: Prog | null = null;
+    try {
+      prog = this.program(FVS, src, ['iResolution', 'iTime', 'iFrame', 'iChannel0', ...decls.map((d) => d.name)]);
+      if (shaderErrors.peek()[code]) { const n = { ...shaderErrors.peek() }; delete n[code]; shaderErrors.value = n; }
+    } catch (e) {
+      shaderErrors.value = { ...shaderErrors.peek(), [code]: formatShaderLog(String((e as Error).message), src).slice(0, 8) };
+    }
+    const entry = { prog, decls }; this.shaders.set(code, entry);
+    if (this.shaders.size > 64) this.shaders.delete(this.shaders.keys().next().value!);
+    return entry;
+  }
+
+  /** Run a compiled user shader into `out`, reading `input` as iChannel0. */
+  runShader(sh: { prog: Prog; decls: UniformDecl[] }, out: RT, input: WebGLTexture | null, ctx: Ctx, value: (d: UniformDecl) => number | number[]) {
+    if (!input) { if (!this.emptyTex) { const { gl } = this; this.emptyTex = gl.createTexture()!; gl.bindTexture(gl.TEXTURE_2D, this.emptyTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); } input = this.emptyTex; }
+    this.runPass(sh.prog, out, [input], (gl, u) => {
+      gl.uniform3f(u.iResolution!, ctx.cw, ctx.ch, 1); gl.uniform1f(u.iTime!, ctx.t / ctx.fps); gl.uniform1i(u.iFrame!, Math.round(ctx.t)); gl.uniform1i(u.iChannel0!, 0);
+      for (const d of sh.decls) {
+        const v = value(d), loc = u[d.name]!;
+        if (d.type === 'float' || d.type === 'bool') gl.uniform1f(loc, v as number);
+        else if (d.type === 'vec2') gl.uniform2f(loc, (v as number[])[0]!, (v as number[])[1]!);
+        else { const c = v as number[]; gl.uniform4f(loc, c[0]!, c[1]!, c[2]!, c[3] ?? 1); }
+      }
+    });
+  }
+  /** Shader effect: `rt` is the layer input (consumed); returns the shader output. */
+  shaderEffect(rt: RT, code: string, ctx: Ctx, value: (d: UniformDecl) => number | number[]): RT {
+    const sh = this.shaderProgram(code); if (!sh.prog) return rt;
+    const out = this.getRT(rt.w, rt.h);
+    this.runShader(sh as { prog: Prog; decls: UniformDecl[] }, out, rt.tex, ctx, value);
+    this.release(rt); return out;
+  }
+
   // ---- layer rendering ----------------------------------------------------------------------------------
 
   private worldScale(m: Mat, k: number) { return Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) * k || 1; }
@@ -420,7 +463,10 @@ export class GLRenderer {
     const l = r.layer;
     let rt = this.getRT(w, h);
     this.clear(rt, null);
-    if (l.type === 'adjustment') {
+    if (l.type === 'shader') {
+      const sh = this.shaderProgram(l.shader?.code ?? '');
+      if (sh.prog) this.runShader(sh as { prog: Prog; decls: UniformDecl[] }, rt, acc?.tex ?? null, ctx, (d) => pv(l, `sh:${d.name}`, ctx.t, d.def as number));
+    } else if (l.type === 'adjustment') {
       // full-frame coverage; the effect result is mixed over the accumulator by the caller
       const p = this.progs.solid;
       this.bind(rt); gl_use(this, p);
@@ -435,7 +481,6 @@ export class GLRenderer {
       const mc = maskCanvas(r, ctx.t, ctx.k, w, h);
       if (mc) rt = this.modulate(rt, this.upload('maskTex', mc), 0);
     }
-    void acc;
     return rt;
   }
 
@@ -474,7 +519,7 @@ export class GLRenderer {
         continue;
       }
       if (r.opacity <= 0 || l.type === 'null') continue;
-      const direct = mode === 'normal' && !l.masks?.length && !hasMatte && !l.effects?.length;
+      const direct = mode === 'normal' && !l.masks?.length && !hasMatte && !l.effects?.length && l.type !== 'shader';
       if (direct) { this.bind(acc); this.drawContent(r, r.opacity, c2, acc); continue; }
       let rt = this.layerRT(r, 1, c2, w, h, acc);
       if (hasMatte) rt = this.applyMatte(rt, r, resolved, byId, i, c2, w, h);

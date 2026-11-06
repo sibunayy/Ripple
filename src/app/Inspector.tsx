@@ -1,5 +1,7 @@
 import { useRef } from 'preact/hooks';
-import { editLayer, editMedia, activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
+import { ShaderEditor } from './ShaderEditor';
+import { parseUniforms } from '../render/shader';
+import { setShaderCode, editLayer, editMedia, activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
 import { nodeSel } from './tools';
 import { NumField } from '../ui/NumField';
 import { hasKeyAt, isAnimated } from '../anim/interp';
@@ -103,6 +105,15 @@ export function Inspector() {
         ))}
         <div class="seg"><button class="btn sm" onClick={() => addMask(l.id, 'rect')}>＋ Rectangle</button><button class="btn sm" onClick={() => addMask(l.id, 'ellipse')}>＋ Ellipse</button></div>
       </Section>
+      {l.type === 'shader' && l.shader && (
+        <Section title="Shader">
+          <ShaderEditor code={l.shader.code} onCode={(c) => setShaderCode(l.id, null, c)} />
+          {parseUniforms(l.shader.code).map((d) => {
+            const k = `sh:${d.name}`;
+            return d.type === 'float' ? num(k, d.name, (d.max - d.min) / 100, d.min, d.max) : d.type === 'bool' ? num(k, d.name, 1, 0, 1) : d.type === 'vec2' ? vec(k, d.name) : colour(k, d.name);
+          })}
+        </Section>
+      )}
       {l.media && (
         <Section title={l.type === 'video' ? 'Video' : 'Image'}>
           <span class="hint">{p.assets[l.media.asset]?.name ?? 'Missing asset'}</span>

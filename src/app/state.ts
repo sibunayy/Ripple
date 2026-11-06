@@ -5,6 +5,7 @@ import { createLayer, createShapeLayer, createTextLayer, propOf, withProp, type 
 import { ellipsePath, evalPath, recenter, rectPath, togglePathAnimated, writePath } from '../shape/path';
 import type { BlendMode } from '../render/blend';
 import { createEffect, paramKey, type Curves } from '../render/effects';
+import { GALLERY, parseUniforms, syncUniformProps } from '../render/shader';
 import { applyPreset, type Preset } from '../anim/presets';
 import { maskProp } from '../render/masks';
 import { layerBox } from '../shape/geometry';
@@ -183,6 +184,24 @@ export function precompose(ids: string[]) {
 }
 
 // ---- effects & presets -----------------------------------------------------------------------------------
+
+/** Edit shader source for a shader layer (effectId null) or a custom-shader effect; declared uniforms become props. */
+export function setShaderCode(layerId: string, effectId: string | null, code: string) {
+  const decls = parseUniforms(code);
+  editLayer(layerId, 'Edit shader', (l) => {
+    if (effectId) return { ...l, effects: l.effects?.map((e) => (e.id === effectId ? { ...e, data: { code } } : e)), props: syncUniformProps(l.props, `fx:${effectId}:`, decls) };
+    return { ...l, shader: { code }, props: syncUniformProps(l.props, 'sh:', decls) };
+  }, `shader:${layerId}:${effectId ?? ''}`);
+}
+
+export function addShaderLayer() {
+  const p = current.peek(); if (!p) return;
+  const code = GALLERY[0]!.code;
+  const layer = { ...createLayer('shader', p.settings, p.layers.length), shader: { code } };
+  layer.props = syncUniformProps(undefined, 'sh:', parseUniforms(code));
+  commit('Add shader layer', (q) => ({ ...q, layers: [layer, ...q.layers] }));
+  selection.value = [layer.id];
+}
 
 export function addEffect(layerId: string, type: string) {
   const p = current.peek(); if (!p) return;

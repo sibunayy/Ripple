@@ -62,7 +62,7 @@ export interface TextContent {
 export interface Layer {
   id: string;
   name: string;
-  type: 'solid' | 'null' | 'shape' | 'text' | 'precomp' | 'adjustment' | 'image' | 'video';
+  type: 'solid' | 'null' | 'shape' | 'text' | 'precomp' | 'adjustment' | 'image' | 'video' | 'shader';
   parent?: string;
   in: number; // frames, inclusive
   out: number; // frames, exclusive
@@ -83,6 +83,7 @@ export interface Layer {
   precomp?: PrecompRef;
   media?: MediaRef;
   motionBlur?: boolean;
+  shader?: { code: string };
 }
 
 export const DEFAULT_EASE: Ease = [0.42, 0, 0.58, 1];
@@ -93,9 +94,9 @@ const PALETTE: ColorRGBA[] = [
 ];
 
 export function createLayer(type: Layer['type'], s: ProjectSettings, index: number, name?: string): Layer {
-  const full = type === 'solid' || type === 'adjustment' || type === 'precomp';
+  const full = type === 'solid' || type === 'adjustment' || type === 'precomp' || type === 'shader';
   const size: Vec2 = full ? [s.width, s.height] : [100, 100];
-  const label = { solid: 'Solid', null: 'Null', adjustment: 'Adjustment', precomp: 'Precomp', shape: 'Shape', text: 'Text', image: 'Image', video: 'Video' }[type];
+  const label = { solid: 'Solid', null: 'Null', adjustment: 'Adjustment', precomp: 'Precomp', shape: 'Shape', text: 'Text', image: 'Image', video: 'Video', shader: 'Shader' }[type];
   return {
     id: newId(),
     name: name ?? `${label} ${index + 1}`,
