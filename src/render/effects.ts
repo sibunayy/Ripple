@@ -6,6 +6,9 @@ import type { Effect, Layer, Prop, Vec2 } from '../model/layer';
 import type { ColorRGBA } from '../model/project';
 import type { Ctx, GLRenderer, RT } from './gl';
 import { FULLSCREEN_VS } from './gl';
+import { identityLut, lutRGBA, type Lut3D } from './lut';
+import { GALLERY, parseUniforms } from './shader';
+import { pv } from '../shape/geometry';
 
 export type ParamKind = 'number' | 'color' | 'vec2' | 'select';
 export interface ParamDef { key: string; label: string; kind: ParamKind; def: number | ColorRGBA | Vec2; min?: number; max?: number; step?: number; options?: string[]; center?: boolean }
@@ -18,7 +21,9 @@ export interface EffectDef {
   /** Pixel effect that expects display-referred (sRGB) values even when compositing in linear light. */
   perceptual?: boolean;
   lut?: boolean;
-  run?: (r: GLRenderer, rt: RT, v: Values, ctx: Ctx, e: Effect) => RT;
+  /** Uses a 3D LUT stored in `effect.data` (Lut3D). */
+  lut3?: boolean;
+  run?: (r: GLRenderer, rt: RT, v: Values, ctx: Ctx, e: Effect, l: Layer) => RT;
 }
 export type Values = Record<string, number | number[]>;
 
@@ -57,6 +62,8 @@ export const EFFECTS: EffectDef[] = [
     glsl: 'c.rgb = clamp((c.rgb - $inBlack / 100.0) / max($inWhite / 100.0 - $inBlack / 100.0, 1e-4), 0.0, 1.0); c.rgb = pow(c.rgb, vec3(1.0 / $gamma)); c.rgb = mix(vec3($outBlack / 100.0), vec3($outWhite / 100.0), c.rgb); return c;' },
   { type: 'curves', name: 'Curves', category: 'Colour', mode: 'pixel', perceptual: true, lut: true, params: [],
     glsl: 'c.rgb = vec3(texture($lut, vec2(clamp(c.r, 0.0, 1.0), 0.5)).r, texture($lut, vec2(clamp(c.g, 0.0, 1.0), 0.5)).g, texture($lut, vec2(clamp(c.b, 0.0, 1.0), 0.5)).b); return c;' },
+  { type: 'lut3d', name: '3D LUT (.cube)', category: 'Colour', mode: 'pixel', perceptual: true, lut3: true, params: [N('amount', 'Intensity', 100, 0, 100)],
+    glsl: 'float n = $lutN; vec3 m = texture($lut3, clamp(c.rgb, 0.0, 1.0) * ((n - 1.0) / n) + 0.5 / n).rgb; c.rgb = mix(c.rgb, m, $amount / 100.0); return c;' },
   { type: 'tint', name: 'Tint', category: 'Colour', mode: 'pixel', perceptual: true, params: [C('black', 'Map black to', [0, 0, 0, 1]), C('white', 'Map white to', [1, 1, 1, 1]), N('amount', 'Amount', 100, 0, 100)],
     glsl: 'c.rgb = mix(c.rgb, mix($black.rgb, $white.rgb, luma(c.rgb)), $amount / 100.0); return c;' },
   { type: 'gradientMap', name: 'Tritone', category: 'Colour', mode: 'pixel', perceptual: true, params: [C('shadow', 'Shadows', [0.05, 0.05, 0.3, 1]), C('mid', 'Midtones', [0.8, 0.3, 0.5, 1]), C('high', 'Highlights', [1, 0.95, 0.6, 1]), N('amount', 'Amount', 100, 0, 100)],
@@ -104,6 +111,8 @@ export const EFFECTS: EffectDef[] = [
   { type: 'dropShadow', name: 'Drop Shadow', category: 'Stylise', mode: 'custom', params: [C('color', 'Colour', [0, 0, 0, 1]), N('opacity', 'Opacity', 70, 0, 100), N('angle', 'Direction', 90, -180, 180), N('distance', 'Distance', 24, 0, 400), N('softness', 'Softness', 20, 0, 200, 0.5)],
     run: (r, rt, v, ctx) => r.dropShadow(rt, v.color as number[], (v.opacity as number) / 100, v.angle as number, (v.distance as number) * ctx.k, (v.softness as number) * ctx.k * 0.5) },
 ];
+EFFECTS.push({ type: 'shader', name: 'Custom Shader', category: 'Generate', mode: 'custom', params: [],
+  run: (r, rt, _v, ctx, e, l) => { const code = (e.data as { code: string } | undefined)?.code ?? ''; return r.shaderEffect(rt, code, ctx, (d) => pv(l, paramKey(e.id, d.name), ctx.t, d.def as number)); } });
 export const EFFECT_BY_TYPE = new Map(EFFECTS.map((e) => [e.type, e]));
 
 export const paramKey = (id: string, key: string) => `fx:${id}:${key}`;
@@ -119,6 +128,8 @@ export function createEffect(type: string, comp: { width: number; height: number
   }
   const effect: Effect = { id, type, enabled: true };
   if (type === 'curves') effect.data = defaultCurves();
+  if (type === 'lut3d') effect.data = identityLut();
+  if (type === 'shader') { const code = GALLERY.find((g) => g.name.startsWith('CRT'))!.code; effect.data = { code }; for (const d of parseUniforms(code)) props[paramKey(id, d.name)] = { value: d.def }; }
   return { effect, props };
 }
 
@@ -166,6 +177,7 @@ const subst = (code: string, i: number) => code.replace(/\$(\w+)/g, (_, k) => `u
 const uniformDecl = (def: EffectDef, i: number) => [
   ...def.params.map((p) => `uniform ${p.kind === 'color' ? 'vec4' : p.kind === 'vec2' ? 'vec2' : p.kind === 'select' ? 'int' : 'float'} u${i}_${p.key};`),
   ...(def.lut ? [`uniform sampler2D u${i}_lut;`] : []),
+  ...(def.lut3 ? [`uniform sampler3D u${i}_lut3;`, `uniform float u${i}_lutN;`] : []),
 ].join('\n');
 
 interface Built { prog: ReturnType<GLRenderer['program']>; defs: EffectDef[] }
@@ -175,13 +187,14 @@ function build(r: GLRenderer, defs: EffectDef[]): Built {
   const sig = defs.map((d) => d.type).join('+');
   let m = shaderCache.get(r); if (!m) shaderCache.set(r, (m = new Map()));
   const hit = m.get(sig); if (hit) return hit;
-  const head = `#version 300 es\nprecision highp float;\nin vec2 v_uv; uniform sampler2D u_src; out vec4 o;\n${COLOR_GLSL}\nvec4 S(vec2 uv){ return texture(u_src, uv); }\n`;
+  const head = `#version 300 es\nprecision highp float;\nprecision highp sampler3D;\nin vec2 v_uv; uniform sampler2D u_src; out vec4 o;\n${COLOR_GLSL}\nvec4 S(vec2 uv){ return texture(u_src, uv); }\n`;
   let body = '', main: string;
   const names = ['u_src', 'u_res', 'u_time', 'u_linear'];
   defs.forEach((d, i) => {
     body += uniformDecl(d, i) + '\n';
     for (const p of d.params) names.push(`u${i}_${p.key}`);
     if (d.lut) names.push(`u${i}_lut`);
+    if (d.lut3) names.push(`u${i}_lut3`, `u${i}_lutN`);
     if (d.mode === 'pixel') {
       body += `vec4 fx${i}(vec4 c, vec2 uv){ ${subst(d.glsl!.replace(/\$lut/g, `$lut`), i)} }\n`;
       body += d.perceptual ? `vec4 w${i}(vec4 c, vec2 uv){ if (u_linear == 1) { vec4 q = fx${i}(vec4(toSrgb(c.rgb), c.a), uv); return vec4(toLin(max(q.rgb, 0.0)), q.a); } return fx${i}(c, uv); }\n` : `vec4 w${i}(vec4 c, vec2 uv){ return fx${i}(c, uv); }\n`;
@@ -208,6 +221,21 @@ function curveTexture(r: GLRenderer, e: Effect): WebGLTexture {
   return t;
 }
 
+const lut3Cache = new WeakMap<GLRenderer, Map<string, { tex: WebGLTexture; src: string }>>();
+function lut3Texture(r: GLRenderer, id: string, l: Lut3D): WebGLTexture {
+  const gl = r.gl;
+  let m = lut3Cache.get(r); if (!m) lut3Cache.set(r, (m = new Map()));
+  let e = m.get(id);
+  if (!e) { e = { tex: gl.createTexture()!, src: '' }; m.set(id, e); }
+  gl.bindTexture(gl.TEXTURE_3D, e.tex);
+  if (e.src !== l.b64) {
+    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, l.size, l.size, l.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutRGBA(l));
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]] as const) gl.texParameteri(gl.TEXTURE_3D, k, v);
+    e.src = l.b64;
+  }
+  return e.tex;
+}
+
 const valuesOf = (l: Layer, e: Effect, def: EffectDef, t: number): Values => {
   const v: Values = {};
   for (const p of def.params) {
@@ -231,6 +259,7 @@ function setUniforms(r: GLRenderer, built: Built, vals: Values[], effects: Effec
       else { let c = v as number[]; if (r.linear) c = [...srgbToLin(c.slice(0, 3)), c[3]!]; gl.uniform4f(loc, c[0]!, c[1]!, c[2]!, c[3]!); }
     }
     if (d.lut) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, curveTexture(r, effects[i]!)); gl.uniform1i(u[`u${i}_lut`]!, unit++); }
+    if (d.lut3) { const l = (effects[i]!.data as Lut3D) ?? identityLut(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_3D, lut3Texture(r, effects[i]!.id, l)); gl.uniform1i(u[`u${i}_lut3`]!, unit++); gl.uniform1f(u[`u${i}_lutN`]!, l.size); }
   });
   void rt;
 }
@@ -254,7 +283,7 @@ export function effectsInput(r: GLRenderer, l: Layer, rt: RT, ctx: Ctx): RT {
       const out = r.getRT(cur.w, cur.h);
       r.runPass(built.prog, out, [cur.tex], () => setUniforms(r, built, vals, [fx[i]!], ctx, cur));
       r.release(cur); cur = out; i++;
-    } else { cur = def.run!(r, cur, valuesOf(l, fx[i]!, def, ctx.t), ctx, fx[i]!); i++; }
+    } else { cur = def.run!(r, cur, valuesOf(l, fx[i]!, def, ctx.t), ctx, fx[i]!, l); i++; }
   }
   return cur;
 }

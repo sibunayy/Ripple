@@ -8,7 +8,7 @@ import { activeJobs } from '../export/queue';
 import { listSnapshots } from '../io/store';
 import { cancelPen, deleteSelectedNode, finishPen, nodeSel, penDraft, setTool, TOOLS, tool } from './tools';
 import { pause, play, playing, seek, step, togglePlay } from './playback';
-import { Viewer } from './Viewer';
+import { Viewer, mbPreview } from './Viewer';
 import { Timeline } from './Timeline';
 import { LayersPanel } from './LayersPanel';
 import { Inspector } from './Inspector';
@@ -97,6 +97,7 @@ export function Editor() {
           <button class="btn" onClick={() => step(-1)} aria-label="Previous frame">◀︎</button>
           <button class="btn primary" onClick={() => (playing.value ? pause() : play())} aria-label={playing.value ? 'Pause' : 'Play'}>{playing.value ? '❚❚' : '▶︎'}</button>
           <button class="btn" onClick={() => step(1)} aria-label="Next frame">▶︎▶︎</button>
+          <button class="btn sm" aria-pressed={mbPreview.value} title="Preview motion blur (needs layers with motion blur and the project setting on)" onClick={() => (mbPreview.value = !mbPreview.value)}>MB</button>
           <span class="tc" aria-label="Current time">{timecode(Math.floor(playhead.value), s.fps)}</span>
           <span class="hint">/ {timecode(s.duration, s.fps)} · {s.width}×{s.height} · {s.fps} fps</span>
         </footer>
@@ -153,6 +154,11 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
         <label>Background colour
           <input type="color" value={toHex(s.bg)} onInput={(e) => setSettings({ bg: fromHex((e.target as HTMLInputElement).value, s.bg[3]) })} />
         </label>
+        <label class="check"><input type="checkbox" checked={!!s.motionBlur?.on} onChange={(e) => setSettings({ motionBlur: { on: (e.target as HTMLInputElement).checked, shutter: s.motionBlur?.shutter ?? 180, samples: s.motionBlur?.samples ?? 12 } })} /> Motion blur on export</label>
+        {s.motionBlur?.on && <div class="two">
+          <label>Shutter angle°<input type="number" inputMode="numeric" value={s.motionBlur.shutter} min={1} max={720} onChange={(e) => setSettings({ motionBlur: { ...s.motionBlur!, shutter: Math.min(720, Math.max(1, Number((e.target as HTMLInputElement).value) || 180)) } })} /></label>
+          <label>Samples<input type="number" inputMode="numeric" value={s.motionBlur.samples} min={2} max={32} onChange={(e) => setSettings({ motionBlur: { ...s.motionBlur!, samples: Math.min(32, Math.max(2, Number((e.target as HTMLInputElement).value) || 12)) } })} /></label>
+        </div>}
         <label class="check"><input type="checkbox" checked={s.linearLight} onChange={(e) => setSettings({ linearLight: (e.target as HTMLInputElement).checked })} /> Composite in linear light</label>
         {snaps.length > 0 && !activeComp.value && (
           <section class="sec"><h3>Earlier versions</h3>

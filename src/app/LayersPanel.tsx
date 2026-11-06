@@ -1,5 +1,5 @@
 import { setTool } from './tools';
-import { importMedia, addAdjustment, addComp, precompose, addLayer, current, deleteLayers, duplicateLayers, moveLayer, renameLayer, selection, setParent, toggleVisible } from './state';
+import { addShaderLayer, importMedia, addAdjustment, addComp, precompose, addLayer, current, deleteLayers, duplicateLayers, moveLayer, renameLayer, selection, setParent, toggleVisible } from './state';
 
 export function LayersPanel() {
   const p = current.value!;
@@ -14,6 +14,7 @@ export function LayersPanel() {
         <button class="btn sm" onClick={() => setTool('rect')} aria-label="Draw a shape">＋ Shape</button>
         <button class="btn sm" onClick={() => setTool('text')} aria-label="Add text">＋ Text</button>
         <button class="btn sm" onClick={addAdjustment} aria-label="Add adjustment layer">＋ Adjust</button>
+        <button class="btn sm" onClick={addShaderLayer} aria-label="Add shader layer">＋ Shader</button>
         <button class="btn sm" onClick={addComp} aria-label="Add composition">＋ Comp</button>
         <label class="btn sm filebtn" aria-label="Import media">＋ Media
           <input type="file" multiple accept="image/*,video/*,.svg,.heic,.avif" hidden onChange={(e) => { const fs = Array.from((e.target as HTMLInputElement).files ?? []); if (fs.length) void importMedia(fs); (e.target as HTMLInputElement).value = ''; }} />
@@ -28,7 +29,7 @@ export function LayersPanel() {
               <div class="row1" onClick={(e) => { selection.value = e.shiftKey ? (on ? sel.filter((x) => x !== l.id) : [...sel, l.id]) : [l.id]; }}>
                 <button class={`eye ${l.visible ? '' : 'off'}`} aria-label={l.visible ? 'Hide layer' : 'Show layer'} aria-pressed={l.visible}
                   onClick={(e) => { e.stopPropagation(); toggleVisible(l.id); }}>{l.visible ? '●' : '○'}</button>
-                <i class="chip" title={l.type} style={{ background: l.type === 'solid' || l.type === 'shape' || l.type === 'precomp' || l.type === 'image' || l.type === 'video' ? `rgb(${l.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'transparent' }}>{({ text: 'T', adjustment: '◐', precomp: '▣', image: '▨', video: '▶︎' } as Record<string, string>)[l.type] ?? ''}</i>
+                <i class="chip" title={l.type} style={{ background: l.type === 'solid' || l.type === 'shape' || l.type === 'precomp' || l.type === 'image' || l.type === 'video' ? `rgb(${l.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'transparent' }}>{({ text: 'T', adjustment: '◐', precomp: '▣', shader: '◈', image: '▨', video: '▶︎' } as Record<string, string>)[l.type] ?? ''}</i>
                 <input class="name" value={l.name} aria-label="Layer name" onClick={(e) => e.stopPropagation()}
                   onChange={(e) => renameLayer(l.id, (e.target as HTMLInputElement).value)} />
               </div>

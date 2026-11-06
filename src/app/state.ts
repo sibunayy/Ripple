@@ -5,7 +5,9 @@ import { createLayer, createShapeLayer, createTextLayer, propOf, withProp, type 
 import { ellipsePath, evalPath, recenter, rectPath, togglePathAnimated, writePath } from '../shape/path';
 import type { BlendMode } from '../render/blend';
 import { createEffect, paramKey, type Curves } from '../render/effects';
+import { GALLERY, parseUniforms, syncUniformProps } from '../render/shader';
 import { applyPreset, type Preset } from '../anim/presets';
+import { TEMPLATES, type AnimShape, type AnimUnit } from '../text/animate';
 import { maskProp } from '../render/masks';
 import { layerBox } from '../shape/geometry';
 import { shapePath } from '../shape/geometry';
@@ -184,6 +186,55 @@ export function precompose(ids: string[]) {
 
 // ---- effects & presets -----------------------------------------------------------------------------------
 
+/** Edit shader source for a shader layer (effectId null) or a custom-shader effect; declared uniforms become props. */
+export function setShaderCode(layerId: string, effectId: string | null, code: string) {
+  const decls = parseUniforms(code);
+  editLayer(layerId, 'Edit shader', (l) => {
+    if (effectId) return { ...l, effects: l.effects?.map((e) => (e.id === effectId ? { ...e, data: { code } } : e)), props: syncUniformProps(l.props, `fx:${effectId}:`, decls) };
+    return { ...l, shader: { code }, props: syncUniformProps(l.props, 'sh:', decls) };
+  }, `shader:${layerId}:${effectId ?? ''}`);
+}
+
+const animatorProps = (id: string, start: number, end: number, p: Record<string, number | number[]>): Record<string, Prop<any>> => ({
+  [`ta:${id}:start`]: { value: start }, [`ta:${id}:end`]: { value: end }, [`ta:${id}:offset`]: { value: 0 },
+  [`ta:${id}:position`]: { value: p.position ?? [0, 0] }, [`ta:${id}:scale`]: { value: p.scale ?? [100, 100] },
+  [`ta:${id}:rotation`]: { value: p.rotation ?? 0 }, [`ta:${id}:opacity`]: { value: p.opacity ?? 100 },
+  [`ta:${id}:color`]: { value: [1, 0.4, 0.4, 1] },
+});
+
+/** Add a text animator from a template and key its offset so the window sweeps across the text (from the playhead). */
+export function addTextAnimator(layerId: string, templateId: string | null) {
+  const p = current.peek(); if (!p) return;
+  const tpl = templateId ? TEMPLATES.find((t) => t.id === templateId) : undefined;
+  const id = newId(), t0 = frame(), fps = p.settings.fps;
+  editLayer(layerId, 'Add text animator', (l) => {
+    if (!l.text) return l;
+    const n = Array.from(l.text.text.replace(/\n/g, '')).length;
+    const sec = tpl ? Math.max(tpl.minSeconds, n * tpl.secondsPer) : 1, frames = Math.max(1, Math.round(sec * fps));
+    const props = { ...l.props, ...animatorProps(id, tpl?.start ?? 0, tpl?.end ?? 100, tpl?.props ?? { opacity: 0 }) };
+    if (tpl) props[`ta:${id}:offset`] = { keys: [{ t: t0, v: -100 - tpl.end + tpl.start, ease: 'linear' as const }, { t: t0 + frames, v: 100, ease: 'linear' as const }] };
+    return { ...l, props, text: { ...l.text, animators: [...(l.text.animators ?? []), { id, name: tpl?.label ?? `Animator ${(l.text.animators?.length ?? 0) + 1}`, unit: tpl?.unit ?? 'chars', shape: tpl?.shape ?? 'ramp' }] } };
+  });
+  if (!expanded.peek().includes(layerId)) expanded.value = [...expanded.peek(), layerId];
+}
+export const editAnimator = (layerId: string, id: string, patch: { unit?: AnimUnit; shape?: AnimShape; colorOn?: boolean }) =>
+  editLayer(layerId, 'Edit text animator', (l) => (l.text ? { ...l, text: { ...l.text, animators: l.text.animators?.map((a) => (a.id === id ? { ...a, ...patch } : a)) } } : l));
+export const removeAnimator = (layerId: string, id: string) =>
+  editLayer(layerId, 'Remove text animator', (l) => {
+    if (!l.text) return l;
+    const props = Object.fromEntries(Object.entries(l.props ?? {}).filter(([k]) => !k.startsWith(`ta:${id}:`)));
+    return { ...l, props, text: { ...l.text, animators: (l.text.animators ?? []).filter((a) => a.id !== id) } };
+  });
+
+export function addShaderLayer() {
+  const p = current.peek(); if (!p) return;
+  const code = GALLERY[0]!.code;
+  const layer = { ...createLayer('shader', p.settings, p.layers.length), shader: { code } };
+  layer.props = syncUniformProps(undefined, 'sh:', parseUniforms(code));
+  commit('Add shader layer', (q) => ({ ...q, layers: [layer, ...q.layers] }));
+  selection.value = [layer.id];
+}
+
 export function addEffect(layerId: string, type: string) {
   const p = current.peek(); if (!p) return;
   const c = createEffect(type, p.settings, newId()); if (!c) return;
@@ -204,6 +255,8 @@ export const moveEffect = (layerId: string, effectId: string, dir: -1 | 1) =>
     [fx[i], fx[j]] = [fx[j]!, fx[i]!];
     return { ...l, effects: fx };
   });
+export const setEffectData = (layerId: string, effectId: string, data: unknown) =>
+  editLayer(layerId, 'Edit effect data', (l) => ({ ...l, effects: l.effects?.map((e) => (e.id === effectId ? { ...e, data } : e)) }));
 export const setCurves = (layerId: string, effectId: string, data: Curves) =>
   editLayer(layerId, 'Edit curves', (l) => ({ ...l, effects: l.effects?.map((e) => (e.id === effectId ? { ...e, data } : e)) }), `curves:${effectId}`);
 
@@ -567,6 +620,14 @@ export async function importBundleFile(file: File) {
     const r = await importBundle(file);
     await refreshLibrary();
     say(r.warnings.length ? `Imported “${r.project.name}” with warnings: ${r.warnings.join('; ')}` : `Imported “${r.project.name}”.`);
+  } catch (e) { say((e as Error).message); }
+}
+export async function importLottieFile(file: File) {
+  try {
+    const { importLottieBlob } = await import('../lottie/file');
+    const r = await importLottieBlob(file);
+    await saveProject(r.project); await refreshLibrary();
+    say(r.report.length ? `Imported “${r.project.name}”. ${r.report.length} note${r.report.length > 1 ? 's' : ''}: ${r.report.slice(0, 3).map((x) => x.msg).join(' · ')}${r.report.length > 3 ? ' …' : ''}` : `Imported “${r.project.name}”.`);
   } catch (e) { say((e as Error).message); }
 }
 export async function backupProject(id: string) {

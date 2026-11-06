@@ -5,6 +5,7 @@ import { apply, compose, mul, type Mat } from '../eval/affine';
 import { flatten, segment, segmentCount, trimPoly } from '../shape/path';
 import { layerBox, pv, shapePath } from '../shape/geometry';
 import { fontString, layoutText, textStyle } from '../text/metrics';
+import { influence, unitMap } from '../text/animate';
 import type { Resolved } from '../eval/evaluate';
 import type { BezPath, Layer, Paint, Vec2 } from '../model/layer';
 import type { ColorRGBA } from '../model/project';
@@ -39,6 +40,43 @@ function style(ctx: CanvasRenderingContext2D, l: Layer, t: number, which: 'fill'
   return g;
 }
 
+/** Per-glyph drawing with animator transforms (position/scale/rotation/opacity, optional colour). */
+function drawAnimatedText(ctx: CanvasRenderingContext2D, l: Layer, t: number, lay: ReturnType<typeof layoutText>, size: number, leading: number) {
+  const sh = l.shape!, x = l.text!, lh = (size * leading) / 100;
+  const maps = x.animators!.map((a) => ({ a, ...unitMap(x.text, a.unit) }));
+  const fill = sh.fill ? style(ctx, l, t, 'fill', sh.fill) : null;
+  const base = pv<ColorRGBA>(l, 'fill.color', t, [1, 1, 1, 1]);
+  let charIdx = 0;
+  const lines = x.text.split('\n');
+  lay.lines.forEach((ln, li) => {
+    const chars = Array.from(lines[li] ?? '');
+    chars.forEach((ch, ci) => {
+      const g = charIdx++, flat = g + li; // flat index counts newlines (unitMap includes them)
+      const w = ctx.measureText(ch).width, pre = ctx.measureText(chars.slice(0, ci).join('')).width;
+      let dx = 0, dy = 0, sx = 1, sy = 1, rot = 0, op = 1, mix = 0, col = base;
+      for (const m of maps) {
+        const u = m.idx[flat]; if (u === undefined || u < 0) continue;
+        const k = (n: string) => `ta:${m.a.id}:${n}`;
+        const inf = influence(u, m.count, pv(l, k('start'), t, 0), pv(l, k('end'), t, 100), pv(l, k('offset'), t, 0), m.a.shape);
+        const pos = pv<number[]>(l, k('position'), t, [0, 0]), scl = pv<number[]>(l, k('scale'), t, [100, 100]);
+        dx += pos[0]! * inf; dy += pos[1]! * inf;
+        sx *= 1 + (scl[0]! / 100 - 1) * inf; sy *= 1 + (scl[1]! / 100 - 1) * inf;
+        rot += pv(l, k('rotation'), t, 0) * inf;
+        op *= 1 + (pv(l, k('opacity'), t, 100) / 100 - 1) * inf;
+        if (m.a.colorOn) { col = pv<ColorRGBA>(l, k('color'), t, [1, 1, 1, 1]); mix = Math.max(mix, inf); }
+      }
+      if (op <= 0.001 || !fill) return;
+      ctx.save();
+      ctx.translate(ln.x + pre + w / 2 + dx, ln.y + lh / 2 + dy);
+      ctx.rotate((rot * Math.PI) / 180); ctx.scale(sx, sy);
+      ctx.globalAlpha *= Math.min(1, Math.max(0, op));
+      ctx.fillStyle = mix > 0 && typeof fill === 'string' ? css([base[0] + (col[0] - base[0]) * mix, base[1] + (col[1] - base[1]) * mix, base[2] + (col[2] - base[2]) * mix, base[3]], pv(l, 'fill.opacity', t, 100) / 100) : fill;
+      ctx.fillText(ch, -w / 2, -lh / 2);
+      ctx.restore();
+    });
+  });
+}
+
 function drawCopy(ctx: CanvasRenderingContext2D, l: Layer, t: number, path: BezPath | null) {
   const sh = l.shape!;
   if (l.type === 'text') {
@@ -46,6 +84,7 @@ function drawCopy(ctx: CanvasRenderingContext2D, l: Layer, t: number, path: BezP
     ctx.font = fontString(l, st.size);
     (ctx as unknown as { letterSpacing: string }).letterSpacing = `${(st.tracking / 1000) * st.size}px`;
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    if (l.text!.animators?.length) { drawAnimatedText(ctx, l, t, lay, st.size, st.leading); return; }
     if (sh.fill) { ctx.fillStyle = style(ctx, l, t, 'fill', sh.fill); for (const ln of lay.lines) ctx.fillText(ln.text, ln.x, ln.y); }
     if (sh.stroke) {
       ctx.strokeStyle = style(ctx, l, t, 'stroke', sh.stroke.paint); ctx.lineWidth = pv(l, 'stroke.width', t, 0);

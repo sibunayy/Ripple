@@ -11,6 +11,8 @@ export interface ProjectSettings {
   bg: ColorRGBA;
   colorSpace: 'srgb' | 'display-p3';
   linearLight: boolean;
+  /** Motion blur (spec §7.11): shutter angle in degrees and temporal sample count; applies to layers with `motionBlur`. */
+  motionBlur?: { on: boolean; shutter: number; samples: number };
 }
 
 export interface AssetMeta { hash: string; name: string; kind: 'image' | 'video' | 'svg'; mime: string; width: number; height: number; duration?: number; size: number }

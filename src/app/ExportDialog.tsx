@@ -5,7 +5,7 @@ import { KIND_INFO, type ExportKind } from '../export/export';
 import { cancel, dismiss, enqueue, jobs, restart } from '../export/queue';
 import { downloadBlob, shareBlob } from '../io/download';
 
-const ORDER: ExportKind[] = ['mp4', 'webm', 'gif', 'png-seq', 'jpeg-seq', 'webp-seq', 'png', 'jpeg', 'webp', 'ripple'];
+const ORDER: ExportKind[] = ['mp4', 'webm', 'gif', 'png-seq', 'jpeg-seq', 'webp-seq', 'png', 'jpeg', 'webp', 'lottie', 'ripple'];
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
   const [kind, setKind] = useState<ExportKind>('mp4');
@@ -20,7 +20,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const span = range === 'work' ? b - a : p.settings.duration;
   const frames = info.still || kind === 'ripple' ? 1 : Math.max(1, Math.floor((span * outFps) / p.settings.fps));
   const dims = `${Math.max(2, Math.round(p.settings.width * scale))}×${Math.max(2, Math.round(p.settings.height * scale))}`;
-  const media = kind !== 'ripple';
+  const media = kind !== 'ripple' && kind !== 'lottie';
 
   const start = () => enqueue(rootProject(), kind, { kind, scale: kind === 'gif' && scale === 1 ? 0.5 : scale, range, frame: frame(), fps: fps || undefined, transparent: transparent && !!info.alpha });
   const list = jobs.value;
@@ -55,8 +55,9 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
           {info.alpha && <label class="check"><input type="checkbox" checked={transparent} onChange={(e) => setTransparent((e.target as HTMLInputElement).checked)} /> Transparent background</label>}
           <p class="hint">{dims}{kind === 'gif' && scale === 1 ? ' (GIFs default to half size)' : ''} · {frames} frame{frames === 1 ? '' : 's'}{!info.still ? ` · ${(frames / outFps).toFixed(1)} s` : ''}</p>
         </>}
+        {kind === 'lottie' && <p class="hint">Exports vector layers, transforms, keyframes, masks, mattes, precomps and basic text for lottie-web compatible players. Anything that can’t be represented is listed after export.</p>}
         {kind === 'ripple' && <p class="hint">A single file with the project, its media and imported fonts. Import it from the library on any device.</p>}
-        <div class="row"><button class="btn" onClick={onClose}>Close</button><button class="btn primary" onClick={start}>{kind === 'ripple' ? 'Create backup' : 'Add to queue'}</button></div>
+        <div class="row"><button class="btn" onClick={onClose}>Close</button><button class="btn primary" onClick={start}>{kind === 'ripple' ? 'Create backup' : kind === 'lottie' ? 'Export Lottie' : 'Add to queue'}</button></div>
 
         {list.length > 0 && (
           <section class="sec"><h3>Queue</h3>
@@ -67,6 +68,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                   {j.status === 'running' && <progress aria-label="Export progress" max={Math.max(1, j.total)} value={j.done} />}
                   {j.status === 'error' && <p class="gl-error-inline" role="alert">{j.error}</p>}
                   {j.status === 'done' && j.result && <p class="hint" role="status">{j.result.name} · {(j.result.blob.size / 1e6).toFixed(1)} MB{j.result.frames > 1 ? ` · ${(j.result.frames / p.settings.fps / (j.result.ms / 1000)).toFixed(1)}× realtime` : ''}</p>}
+                  {j.status === 'done' && j.result?.notes && (j.result.notes.length ? <ul class="notes" aria-label="Compatibility report">{j.result.notes.map((n, i) => <li key={i}>{n}</li>)}</ul> : <p class="hint">No compatibility issues.</p>)}
                   <div class="seg">
                     {j.status === 'done' && j.result && <><button class="btn sm" onClick={() => downloadBlob(j.result!.blob, j.result!.name)}>Download</button><button class="btn sm primary" onClick={() => void shareBlob(j.result!.blob, j.result!.name, j.result!.mime)}>Share…</button></>}
                     {(j.status === 'running' || j.status === 'queued') && <button class="btn sm danger" onClick={() => cancel(j.id)}>Cancel</button>}
