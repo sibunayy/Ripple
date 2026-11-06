@@ -68,7 +68,7 @@ export const checks = [{
     await page.click('button[aria-label="Back to library"]');
     await page.waitForSelector('.card');
     const before = await page.locator('.card').count();
-    await page.setInputFiles('.library input[type=file]', { name: 'p.ripple', mimeType: 'application/zip', buffer: Buffer.from(bytes) });
+    await page.setInputFiles('.library label:has-text("Import .ripple") input', { name: 'p.ripple', mimeType: 'application/zip', buffer: Buffer.from(bytes) });
     await page.waitForFunction((n) => document.querySelectorAll('.card').length === n + 1, before, { timeout: 15000 });
     await page.locator('.card .thumb').first().click();
     await page.waitForSelector('.editor');
