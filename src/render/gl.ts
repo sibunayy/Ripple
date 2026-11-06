@@ -34,17 +34,52 @@ ${COV}
 void main(){ o = u_color * cover(v_p, u_size); }`;
 const TEX_FS = `#version 300 es
 precision highp float;
-in vec2 v_uv; in vec2 v_p; uniform sampler2D u_tex; uniform float u_op; uniform vec2 u_size; out vec4 o;
+in vec2 v_uv; in vec2 v_p; uniform sampler2D u_tex; uniform float u_op; uniform vec2 u_size; uniform int u_decode; out vec4 o;
 ${COV}
-void main(){ o = texture(u_tex, v_uv) * (u_op * cover(v_p, u_size)); }`;
+vec3 toLin(vec3 c){ return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
+void main(){
+  vec4 t = texture(u_tex, v_uv);
+  if (u_decode == 1 && t.a > 0.0) t = vec4(toLin(t.rgb / t.a) * t.a, t.a);
+  o = t * (u_op * cover(v_p, u_size));
+}`;
 
 const FVS = `#version 300 es
 layout(location=0) in vec2 a; out vec2 v_uv;
 void main(){ v_uv = a; gl_Position = vec4(a * 2.0 - 1.0, 0.0, 1.0); }`;
 const COPY_FS = `#version 300 es
 precision mediump float;
-in vec2 v_uv; uniform sampler2D u_tex; uniform float u_op; out vec4 o;
-void main(){ o = texture(u_tex, v_uv) * u_op; }`;
+in vec2 v_uv; uniform sampler2D u_tex; uniform float u_op; uniform int u_encode; out vec4 o;
+vec3 toSrgb(vec3 c){ return mix(c * 12.92, 1.055 * pow(max(c, 0.0), vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+void main(){
+  vec4 t = texture(u_tex, v_uv) * u_op;
+  if (u_encode == 1 && t.a > 0.0) t = vec4(toSrgb(clamp(t.rgb / t.a, 0.0, 1.0)) * t.a, t.a);
+  o = t;
+}`;
+const BLUR_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv; uniform sampler2D u_src; uniform vec2 u_step; uniform float u_sigma; out vec4 o;
+void main(){
+  vec4 acc = vec4(0.0); float wsum = 0.0;
+  for (int i = -12; i <= 12; i++) { float w = exp(-0.5 * float(i * i) / (u_sigma * u_sigma)); acc += texture(u_src, v_uv + u_step * float(i)) * w; wsum += w; }
+  o = acc / wsum;
+}`;
+const GLOW_X_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv; uniform sampler2D u_src; uniform float u_th; out vec4 o;
+void main(){ vec4 s = texture(u_src, v_uv); float l = dot(s.rgb / max(s.a, 1e-4), vec3(0.299, 0.587, 0.114)); o = s * smoothstep(u_th, u_th + 0.25, l); }`;
+const GLOW_ADD_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv; uniform sampler2D u_src; uniform sampler2D u_glow; uniform float u_int; uniform vec4 u_color; out vec4 o;
+void main(){ vec4 s = texture(u_src, v_uv), g = texture(u_glow, v_uv);
+  float a = min(1.0, s.a + g.a * u_int * u_color.a); o = vec4(min(s.rgb + g.rgb * u_color.rgb * u_int, vec3(a)), a); }`;
+const SH_TINT_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv; uniform sampler2D u_src; uniform vec4 u_color; uniform float u_op; out vec4 o;
+void main(){ float a = texture(u_src, v_uv).a * u_op * u_color.a; o = vec4(u_color.rgb * a, a); }`;
+const SH_COMP_FS = `#version 300 es
+precision highp float;
+in vec2 v_uv; uniform sampler2D u_src; uniform sampler2D u_sh; uniform vec2 u_off; out vec4 o;
+void main(){ vec4 s = texture(u_src, v_uv); o = s + texture(u_sh, v_uv - u_off) * (1.0 - s.a); }`;
 const BLEND_FS = `#version 300 es
 precision highp float;
 in vec2 v_uv; uniform sampler2D u_src; uniform sampler2D u_dst; uniform int u_mode; uniform float u_op; out vec4 o;
@@ -71,14 +106,18 @@ precision mediump float;
 in vec2 v_uv; uniform sampler2D u_a; uniform sampler2D u_b; uniform sampler2D u_cov; uniform float u_op; out vec4 o;
 void main(){ float k = texture(u_cov, v_uv).a * u_op; o = texture(u_a, v_uv) * (1.0 - k) + texture(u_b, v_uv) * k; }`;
 
-export interface FrameInfo { width: number; height: number; bg: ColorRGBA; t?: number; comps?: Record<string, Comp>; fps?: number }
-export interface RT { tex: WebGLTexture; fbo: WebGLFramebuffer; w: number; h: number }
-type Prog = { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null> };
+export const FULLSCREEN_VS = FVS;
+export interface FrameInfo { width: number; height: number; bg: ColorRGBA; t?: number; comps?: Record<string, Comp>; fps?: number; linear?: boolean }
+export interface RT { tex: WebGLTexture; fbo: WebGLFramebuffer; w: number; h: number; f16?: boolean }
+export type Prog = { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null> };
 const MAX_DEPTH = 6;
 
 export class GLRenderer {
   gl!: WebGL2RenderingContext;
-  private progs!: Record<'solid' | 'tex' | 'copy' | 'blend' | 'mod' | 'mix', Prog>;
+  private progs!: Record<'solid' | 'tex' | 'copy' | 'blend' | 'mod' | 'mix' | 'blur' | 'glowX' | 'glowAdd' | 'shTint' | 'shComp', Prog>;
+  /** Compositing in linear light (RGBA16F targets, sRGB decode/encode at the edges). */
+  linear = false;
+  private floatOK = false;
   private vao!: WebGLVertexArrayObject;
   private pool = new Map<string, RT[]>();
   private maskTex: WebGLTexture | null = null;
@@ -119,12 +158,18 @@ export class GLRenderer {
     const q = ['u_m', 'u_size', 'u_res', 'u_aa'];
     this.progs = {
       solid: this.program(QVS, SOLID_FS, [...q, 'u_color']),
-      tex: this.program(QVS, TEX_FS, [...q, 'u_tex', 'u_op']),
-      copy: this.program(FVS, COPY_FS, ['u_tex', 'u_op']),
+      tex: this.program(QVS, TEX_FS, [...q, 'u_tex', 'u_op', 'u_decode']),
+      copy: this.program(FVS, COPY_FS, ['u_tex', 'u_op', 'u_encode']),
       blend: this.program(FVS, BLEND_FS, ['u_src', 'u_dst', 'u_mode', 'u_op']),
       mod: this.program(FVS, MOD_FS, ['u_src', 'u_mask', 'u_kind']),
       mix: this.program(FVS, MIX_FS, ['u_a', 'u_b', 'u_cov', 'u_op']),
+      blur: this.program(FVS, BLUR_FS, ['u_src', 'u_step', 'u_sigma']),
+      glowX: this.program(FVS, GLOW_X_FS, ['u_src', 'u_th']),
+      glowAdd: this.program(FVS, GLOW_ADD_FS, ['u_src', 'u_glow', 'u_int', 'u_color']),
+      shTint: this.program(FVS, SH_TINT_FS, ['u_src', 'u_color', 'u_op']),
+      shComp: this.program(FVS, SH_COMP_FS, ['u_src', 'u_sh', 'u_off']),
     };
+    this.floatOK = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
     this.pool.clear(); this.maskTex = null; this.rasterTex = null; this.stats.rts = 0;
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
@@ -143,21 +188,22 @@ export class GLRenderer {
 
   getRT(w: number, h: number): RT {
     const { gl } = this;
-    const key = `${w}x${h}`, free = this.pool.get(key);
+    const f16 = this.linear && this.floatOK, key = `${w}x${h}${f16 ? 'f' : ''}`, free = this.pool.get(key);
     const hit = free?.pop();
     if (hit) return hit;
     const tex = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    if (f16) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]] as const) gl.texParameteri(gl.TEXTURE_2D, k, v);
     const fbo = gl.createFramebuffer()!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     this.stats.rts++;
-    return { tex, fbo, w, h };
+    return { tex, fbo, w, h, f16 };
   }
   release(rt: RT) {
-    const key = `${rt.w}x${rt.h}`, list = this.pool.get(key) ?? [];
+    const key = `${rt.w}x${rt.h}${rt.f16 ? 'f' : ''}`, list = this.pool.get(key) ?? [];
     if (list.length < 6) { list.push(rt); this.pool.set(key, list); }
     else { this.gl.deleteFramebuffer(rt.fbo); this.gl.deleteTexture(rt.tex); this.stats.rts--; }
   }
@@ -194,6 +240,63 @@ export class GLRenderer {
     return t;
   }
 
+  /** Run a full-screen pass: bind `out`, bind inputs to units 0.., let `set` fill uniforms, draw. */
+  runPass(prog: Prog, out: RT, inputs: WebGLTexture[], set: (gl: WebGL2RenderingContext, u: Prog['u']) => void) {
+    const { gl } = this;
+    this.bind(out); this.fs(prog);
+    inputs.forEach((t, i) => this.tex(i, t));
+    set(gl, prog.u);
+    this.fullscreen();
+  }
+  /** Copy/scale `src` into `out` (bilinear). */
+  blit(src: RT, out: RT) {
+    this.runPass(this.progs.copy, out, [src.tex], (gl, u) => { gl.uniform1i(u.u_tex!, 0); gl.uniform1f(u.u_op!, 1); gl.uniform1i(u.u_encode!, 0); });
+  }
+
+  /** Separable Gaussian blur (σ in buffer px). Consumes `rt`. Large radii run on a downsampled copy. */
+  blur(rt: RT, sigma: number, dir: 'h' | 'v' | 'hv'): RT {
+    if (sigma < 0.3) return rt;
+    const f = sigma > 96 ? 4 : sigma > 24 ? 2 : 1, sw = Math.max(1, Math.ceil(rt.w / f)), sh = Math.max(1, Math.ceil(rt.h / f)), sg = sigma / f;
+    let cur: RT = rt;
+    if (f > 1) { cur = this.getRT(sw, sh); this.blit(rt, cur); this.release(rt); }
+    const step = Math.max(1, sg / 4), taps = sg / step;
+    const pass = (d: 'h' | 'v') => {
+      const out = this.getRT(cur.w, cur.h);
+      this.runPass(this.progs.blur, out, [cur.tex], (gl, u) => {
+        gl.uniform1i(u.u_src!, 0); gl.uniform1f(u.u_sigma!, Math.max(taps, 0.3));
+        gl.uniform2f(u.u_step!, d === 'h' ? step / cur.w : 0, d === 'v' ? step / cur.h : 0);
+      });
+      this.release(cur); cur = out;
+    };
+    if (dir !== 'v') pass('h');
+    if (dir !== 'h') pass('v');
+    if (f > 1) { const out = this.getRT(rt.w, rt.h); this.blit(cur, out); this.release(cur); cur = out; }
+    return cur;
+  }
+
+  glow(rt: RT, threshold: number, sigma: number, intensity: number, color: number[]): RT {
+    const ext = this.getRT(rt.w, rt.h);
+    this.runPass(this.progs.glowX, ext, [rt.tex], (gl, u) => { gl.uniform1i(u.u_src!, 0); gl.uniform1f(u.u_th!, threshold); });
+    const blurred = this.blur(ext, sigma, 'hv'), out = this.getRT(rt.w, rt.h);
+    const c = this.linear ? srgb3(color) : color;
+    this.runPass(this.progs.glowAdd, out, [rt.tex, blurred.tex], (gl, u) => {
+      gl.uniform1i(u.u_src!, 0); gl.uniform1i(u.u_glow!, 1); gl.uniform1f(u.u_int!, intensity); gl.uniform4f(u.u_color!, c[0]!, c[1]!, c[2]!, color[3] ?? 1);
+    });
+    this.release(rt); this.release(blurred);
+    return out;
+  }
+
+  dropShadow(rt: RT, color: number[], opacity: number, angle: number, distPx: number, sigma: number): RT {
+    const sh = this.getRT(rt.w, rt.h), c = this.linear ? srgb3(color) : color;
+    this.runPass(this.progs.shTint, sh, [rt.tex], (gl, u) => { gl.uniform1i(u.u_src!, 0); gl.uniform4f(u.u_color!, c[0]!, c[1]!, c[2]!, color[3] ?? 1); gl.uniform1f(u.u_op!, opacity); });
+    const blurred = this.blur(sh, sigma, 'hv'), out = this.getRT(rt.w, rt.h), a = (angle * Math.PI) / 180;
+    this.runPass(this.progs.shComp, out, [rt.tex, blurred.tex], (gl, u) => {
+      gl.uniform1i(u.u_src!, 0); gl.uniform1i(u.u_sh!, 1); gl.uniform2f(u.u_off!, (Math.cos(a) * distPx) / rt.w, (-Math.sin(a) * distPx) / rt.h);
+    });
+    this.release(rt); this.release(blurred);
+    return out;
+  }
+
   // ---- passes ----------------------------------------------------------------------------------------
 
   /** Draw a textured quad (layer-space size) with a world matrix into the bound target, premultiplied-over. */
@@ -212,7 +315,7 @@ export class GLRenderer {
   private overRT(src: WebGLTexture, op: number) {
     const { gl } = this, p = this.progs.copy;
     this.fs(p); this.tex(0, src);
-    gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, op);
+    gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, op); gl.uniform1i(p.u.u_encode!, 0);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
@@ -249,16 +352,16 @@ export class GLRenderer {
   private drawContent(r: Resolved, op: number, ctx: Ctx, target: RT) {
     const { gl } = this, l = r.layer, res: [number, number] = [ctx.cw, ctx.ch];
     if (l.type === 'solid') {
-      const p = this.progs.solid, c = l.color, o = op * c[3];
+      const p = this.progs.solid, c = this.linear ? [...srgb3(l.color), l.color[3]] as number[] : l.color, o = op * l.color[3];
       gl.useProgram(p.p);
-      gl.uniform4f(p.u.u_color!, c[0] * o, c[1] * o, c[2] * o, o);
+      gl.uniform4f(p.u.u_color!, c[0]! * o, c[1]! * o, c[2]! * o, o);
       this.quad(p, r.world, l.size, res, 1 / this.worldScale(r.world, ctx.k));
     } else if (l.type === 'shape' || l.type === 'text') {
       const ras = rasterLayer(r, ctx.t, ctx.k, { w: ctx.cw, h: ctx.ch });
       if (!ras) return;
       const p = this.progs.tex;
       this.tex(0, this.upload('rasterTex', ras.canvas));
-      gl.useProgram(p.p); gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, op);
+      gl.useProgram(p.p); gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, op); gl.uniform1i(p.u.u_decode!, this.linear ? 1 : 0);
       this.quad(p, [ras.w, 0, 0, ras.h, ras.x, ras.y], [1, 1], res, 0);
     } else if (l.type === 'precomp' && l.precomp) {
       const comp = ctx.comps[l.precomp.comp];
@@ -268,7 +371,7 @@ export class GLRenderer {
       this.bind(target);
       const p = this.progs.tex;
       this.tex(0, child.tex);
-      gl.useProgram(p.p); gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, op);
+      gl.useProgram(p.p); gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, op); gl.uniform1i(p.u.u_decode!, 0);
       this.quad(p, r.world, [comp.width, comp.height], res, 1 / this.worldScale(r.world, ctx.k));
       this.release(child);
     }
@@ -289,7 +392,7 @@ export class GLRenderer {
       this.bind(rt);
       this.drawContent(r, op, ctx, rt);
     }
-    if (l.effects?.length && l.type !== 'adjustment') rt = effectsInput(this, l, rt, ctx.t, ctx.k);
+    if (l.effects?.length && l.type !== 'adjustment') rt = effectsInput(this, l, rt, ctx);
     if (l.masks?.length) {
       const mc = maskCanvas(r, ctx.t, ctx.k, w, h);
       if (mc) rt = this.modulate(rt, this.upload('maskTex', mc), 0);
@@ -306,7 +409,7 @@ export class GLRenderer {
     const byId = new Map(resolved.map((r) => [r.layer.id, r]));
     const matteSrc = new Set(layers.map((l) => l.matte?.layer).filter(Boolean) as string[]);
     let acc = this.getRT(w, h);
-    this.clear(acc, bg);
+    this.clear(acc, bg && this.linear ? [...srgb3(bg), bg[3]] as ColorRGBA : bg);
     const c2: Ctx = { ...ctx, cw, ch };
     for (let i = resolved.length - 1; i >= 0; i--) {
       const r = resolved[i]!, l = r.layer;
@@ -318,7 +421,7 @@ export class GLRenderer {
         let cov = this.layerRT(r, 1, c2, w, h, acc);
         if (hasMatte) cov = this.applyMatte(cov, r, resolved, byId, i, c2, w, h);
         let fx = acc;
-        if (l.effects?.length) { fx = effectsInput(this, l, this.copyRT(acc), ctx.t, ctx.k); }
+        if (l.effects?.length) { fx = effectsInput(this, l, this.copyRT(acc), c2); }
         const out = this.getRT(w, h), p = this.progs.mix;
         this.bind(out); this.fs(p);
         this.tex(0, acc.tex); this.tex(1, fx.tex); this.tex(2, cov.tex);
@@ -362,13 +465,14 @@ export class GLRenderer {
     if (this.lost) return;
     const { gl } = this;
     this.stats.passes = 0;
+    this.linear = !!f.linear;
     const k = this.canvas.width / f.width;
     const ctx: Ctx = { t: f.t ?? 0, k, comps: f.comps ?? {}, cw: f.width, ch: f.height, fps: f.fps ?? 30, depth: 0 };
     const acc = this.renderLayers(layers, f.width, f.height, ctx, f.bg);
     this.bind(null);
     const p = this.progs.copy;
     this.fs(p); this.tex(0, acc.tex);
-    gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, 1);
+    gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, 1); gl.uniform1i(p.u.u_encode!, this.linear ? 1 : 0);
     this.fullscreen();
     this.release(acc);
   }
@@ -385,3 +489,5 @@ export class GLRenderer {
 
 export interface Ctx { t: number; k: number; comps: Record<string, Comp>; cw: number; ch: number; fps: number; depth: number }
 const gl_use = (r: GLRenderer, p: Prog) => r.gl.useProgram(p.p);
+
+const srgb3 = (c: readonly number[]): [number, number, number] => [0, 1, 2].map((i) => (c[i]! <= 0.04045 ? c[i]! / 12.92 : ((c[i]! + 0.055) / 1.055) ** 2.4)) as [number, number, number];

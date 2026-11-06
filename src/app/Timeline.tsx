@@ -190,8 +190,8 @@ function PropRow({ layer: l, prop, ppf, width }: { layer: Layer; prop: PropKey; 
 
   return (
     <div class="tl-row sub">
-      <div class="tl-name" title={propLabel(prop)}>
-        <button class="propname" onClick={() => { keySel.value = keys.map((k) => ref(k.t)); selection.value = [l.id]; }}>{propLabel(prop)}</button>
+      <div class="tl-name" title={propLabel(prop, l)}>
+        <button class="propname" onClick={() => { keySel.value = keys.map((k) => ref(k.t)); selection.value = [l.id]; }}>{propLabel(prop, l)}</button>
       </div>
       <div class="tl-track" style={{ width }} onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
         {keys.map((k) => (

@@ -117,3 +117,19 @@ export async function loadFonts(): Promise<FontRecord[]> {
 export async function deleteFont(family: string): Promise<void> {
   await tx(BLOBS, 'readwrite', (s) => s.delete(`font:${family}`));
 }
+
+// ---- user presets (app-level) ---------------------------------------------------------------------------------
+
+export async function savePresetRecord(id: string, json: string): Promise<void> { await tx(BLOBS, 'readwrite', (s) => s.put(json, `preset:${id}`)); }
+export async function deletePresetRecord(id: string): Promise<void> { await tx(BLOBS, 'readwrite', (s) => s.delete(`preset:${id}`)); }
+export async function loadPresetRecords(): Promise<string[]> {
+  const d = await db();
+  try {
+    return await new Promise<string[]>((resolve, reject) => {
+      const out: string[] = [];
+      const r = d.transaction(BLOBS, 'readonly').objectStore(BLOBS).openCursor(IDBKeyRange.bound('preset:', 'preset:￿'));
+      r.onsuccess = () => { const c = r.result; if (c) { out.push(String(c.value)); c.continue(); } else resolve(out); };
+      r.onerror = () => reject(r.error);
+    });
+  } finally { d.close(); }
+}

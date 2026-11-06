@@ -31,6 +31,8 @@ export type MaskMode = 'none' | 'add' | 'subtract' | 'intersect' | 'lighten' | '
 export interface Mask { id: string; name: string; mode: MaskMode; invert: boolean; path: BezPath }
 export type MatteMode = 'alpha' | 'alphaInv' | 'luma' | 'lumaInv';
 export interface Matte { layer: string; mode: MatteMode }
+/** One effect in a layer's stack. Parameters are animatable props `fx:<id>:<param>`; `data` holds non-animatable state (curve points). */
+export interface Effect { id: string; type: string; enabled: boolean; data?: unknown }
 export interface PrecompRef { comp: string; offset: number }
 
 export interface GradStop { at: number; c: ColorRGBA }
@@ -75,7 +77,7 @@ export interface Layer {
   matte?: Matte;
   /** Use the layer directly below as an alpha matte (without hiding it). */
   clip?: boolean;
-  effects?: unknown[];
+  effects?: Effect[];
   precomp?: PrecompRef;
 }
 
