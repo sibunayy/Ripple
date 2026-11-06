@@ -32,7 +32,7 @@ Status: **Draft v0.1** · Owner: @sibunayy · Target: **iPadOS 26+** Safari/stan
 | Concern | Choice | Rationale |
 |---|---|---|
 | Language | TypeScript (strict) | Safety on a large data model |
-| Build | Vite + esbuild, `vite-plugin-pwa` (Workbox `injectManifest`) | Fast, small output, code-splitting |
+| Build | Vite + esbuild, `vite-plugin-pwa` (Workbox `generateSW`, prompt-for-update) | Fast, small output, code-splitting |
 | UI | **Preact + @preact/signals** (~4 KB) + hand-written CSS (custom properties, container queries) | Fine-grained reactivity for timeline/inspector without VDOM churn |
 | Rendering | **WebGPU** is the primary backend on iPadOS 26+ (compute-based blur/glow, fewer passes); **WebGL2** backend kept behind the same `Renderer` interface as the fallback for desktop browsers without WebGPU and as the first implementation (M1) | iPadOS 26 guarantees WebGPU in Safari; WebGL2 gets the renderer working early and covers other browsers |
 | Vector raster | Own GPU path tessellation (earcut + stroker) with `Path2D`/`OffscreenCanvas` fallback for complex strokes | Resolution-independent, avoids 2D-canvas→texture upload per frame when path unchanged |
