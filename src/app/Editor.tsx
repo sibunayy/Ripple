@@ -10,6 +10,7 @@ import { Viewer } from './Viewer';
 import { Timeline } from './Timeline';
 import { LayersPanel } from './LayersPanel';
 import { Inspector } from './Inspector';
+import { ExportDialog } from './ExportDialog';
 import { FPS_PRESETS, SIZE_PRESETS, fromHex, timecode, toHex } from '../model/project';
 
 type Tab = 'inspector' | 'effects' | 'presets';
@@ -57,6 +58,7 @@ export function Editor() {
   const p = current.value!;
   const s = p.settings;
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('inspector');
   useShortcuts();
   useEffect(() => () => pause(), []);
@@ -78,6 +80,7 @@ export function Editor() {
         <button class="btn" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')}>Timeline</button>
         <button class="btn" aria-pressed={panels.value.right} onClick={() => toggle('right')}>Panel</button>
         <button class="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
+        <button class="btn primary" onClick={() => setExportOpen(true)}>Export</button>
       </header>
 
       <aside class="panel left"><LayersPanel /></aside>
@@ -105,6 +108,7 @@ export function Editor() {
 
       <section class="timeline"><Timeline /></section>
 
+      {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   );
