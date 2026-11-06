@@ -13,6 +13,8 @@ export interface ProjectSettings {
   linearLight: boolean;
 }
 
+export interface Marker { id: string; t: number; name: string }
+
 export interface Project {
   v: 1;
   id: string;
@@ -22,6 +24,9 @@ export interface Project {
   settings: ProjectSettings;
   /** Root composition layers, top layer first. (Nested comps arrive with precomps in M4.) */
   layers: Layer[];
+  markers: Marker[];
+  /** Preview/export range [in, out) in frames; null = whole duration. */
+  workArea: [number, number] | null;
 }
 
 export const SIZE_PRESETS = [
@@ -59,6 +64,8 @@ export function createProject(name = 'Untitled', now = Date.now()): Project {
       linearLight: false,
     },
     layers: [],
+    markers: [],
+    workArea: null,
   };
 }
 
@@ -93,4 +100,12 @@ export const timecode = (frames: number, fps: number): string => {
 };
 
 /** Fill in fields missing from projects saved by older versions. */
-export const migrate = (p: Project): Project => ({ ...p, layers: p.layers ?? [] });
+export const migrate = (p: Project): Project => ({ ...p, layers: p.layers ?? [], markers: p.markers ?? [], workArea: p.workArea ?? null });
+
+/** Effective work range [in, out), clamped to the current duration. */
+export function workRange(p: Pick<Project, 'workArea' | 'settings'>): [number, number] {
+  const d = p.settings.duration;
+  if (!p.workArea) return [0, d];
+  const a = Math.min(Math.max(0, p.workArea[0]), d - 1);
+  return [a, Math.min(d, Math.max(a + 1, p.workArea[1]))];
+}

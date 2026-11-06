@@ -250,6 +250,7 @@ Effects (all keyframeable, GPU, fusable):
 - **Graph editor**: value graph and speed graph; drag bezier handles (touch-sized), per-axis separation, normalise view, fit-to-selection, cubic-bezier numeric entry, **easing library** (Sine/Quad/Cubic/Quart/Quint/Expo/Circ/Back/Elastic/Bounce × In/Out/InOut = 30 curves), user-saved curves.
 - Property types: number, Vec2/Vec3, colour (interpolated in linear or perceptual OKLab — setting), path (vertex interpolation), text (per-character animators P1), enum (hold only), boolean (hold).
 - Time tools: markers (named, coloured), work area (in/out) for preview & export, loop region, jump to next/prev keyframe, time-display toggle (frames / timecode / seconds).
+- **M2 implementation notes.** Each keyframe stores one easing for the segment *after* it (not separate in/out per key), which is what the graph-editor handles edit; the 30-curve library is 24 cubic-béziers plus Elastic/Bounce as function curves. Not yet built: spatial (motion-path) bézier handles on the canvas (the motion path is drawn, not editable), per-axis separated easing, speed graph, graph zoom/pan, user-saved curves, cross-row marquee selection (marquee sweeps within one property row; tap a property name to select all its keys), time-display toggle.
 - **Sequence keyframes** / stagger: select layers → "Sequence layers" with offset and overlap (P1).
 - Property linking without expressions: "link to parent property" (P1); expressions (P2).
 

@@ -2,10 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { effect } from '@preact/signals';
 import { current, frame, playhead, selection, setTransform } from './state';
 import { corners, evaluate, hitTest } from '../eval/evaluate';
-import { evalProp } from '../anim/interp';
+import { evalProp, isAnimated } from '../anim/interp';
 import { apply, invert } from '../eval/affine';
 import { GLRenderer } from '../render/gl';
-import type { Vec2 } from '../model/layer';
+import type { Layer, Prop, Vec2 } from '../model/layer';
 
 const MAX_BUFFER = 2560; // longest side of the preview buffer; the canvas is CSS-scaled to the comp
 const MIN_ZOOM = 0.05, MAX_ZOOM = 16;
@@ -168,6 +168,7 @@ function Overlay({ zoom }: { zoom: number }) {
           <g key={r.layer.id} stroke-width={1.5 * px}>
             <polygon points={pts.map((q) => q.join(',')).join(' ')} fill="none" stroke="var(--accent)" />
             {pts.map((q, i) => <circle key={i} cx={q[0]} cy={q[1]} r={4 * px} fill="var(--surface)" stroke="var(--accent)" />)}
+            <MotionPath layer={r.layer} px={px} />
             <path d={`M${a[0] - 8 * px} ${a[1]}H${a[0] + 8 * px}M${a[0]} ${a[1] - 8 * px}V${a[1] + 8 * px}`} stroke="var(--accent)" />
           </g>
         );
@@ -176,3 +177,20 @@ function Overlay({ zoom }: { zoom: number }) {
   );
 }
 
+
+/** Motion path of an animated, unparented position: a polyline with dots at the keyframes. */
+function MotionPath({ layer, px }: { layer: Layer; px: number }) {
+  const pos = layer.transform.position as Prop<Vec2>;
+  if (!isAnimated(pos) || layer.parent) return null;
+  const keys = pos.keys, t0 = keys[0]!.t, t1 = keys[keys.length - 1]!.t;
+  const pts: string[] = [];
+  const stride = Math.max(1, Math.ceil((t1 - t0) / 400));
+  for (let t = t0; t < t1; t += stride) pts.push(evalProp(pos, t).join(','));
+  pts.push(keys[keys.length - 1]!.v.join(','));
+  return (
+    <g stroke="var(--accent)" stroke-opacity=".7" stroke-width={1.25 * px}>
+      <polyline points={pts.join(' ')} fill="none" stroke-dasharray={`${4 * px} ${4 * px}`} />
+      {keys.map((k) => <circle key={k.t} cx={k.v[0]} cy={k.v[1]} r={3.5 * px} fill="var(--accent)" stroke="none" />)}
+    </g>
+  );
+}

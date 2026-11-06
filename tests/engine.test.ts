@@ -113,3 +113,80 @@ describe('history', () => {
     h.record(9, 'd'); expect(h.canRedo).toBe(false);
   });
 });
+
+import { EASINGS } from '../src/anim/easings';
+import { applyEase } from '../src/anim/interp';
+import { copyKeys, deleteKeys, moveKeys, nextKeyTime, pasteKeys, pruneRefs, setEaseOnKeys, setKeyValue } from '../src/anim/keys';
+import { workRange } from '../src/model/project';
+
+const animated = (): Layer => {
+  const l = mk();
+  return { ...l, id: 'L', transform: { ...l.transform, position: { keys: [
+    { t: 0, v: [0, 0], ease: 'linear' }, { t: 10, v: [100, 50], ease: 'linear' }, { t: 20, v: [200, 0], ease: 'linear' } ] } } };
+};
+const keysOf = (l: Layer) => (l.transform.position as { keys: { t: number; v: number[] }[] }).keys;
+
+describe('easing library', () => {
+  it('has 30 curves + basics, all hit 0 and 1', () => {
+    expect(EASINGS.filter((e) => e.group !== 'Basic')).toHaveLength(30);
+    for (const e of EASINGS) {
+      if (e.ease === 'hold') continue;
+      close(applyEase(e.ease, 0), 0); close(applyEase(e.ease, 1), 1, 1e-4);
+    }
+  });
+  it('shapes: in is slow at start, out is fast at start, back overshoots, bounce stays in [0,1]', () => {
+    const get = (n: string) => EASINGS.find((e) => e.name === n)!.ease;
+    expect(applyEase(get('Cubic In'), 0.3)).toBeLessThan(0.3);
+    expect(applyEase(get('Cubic Out'), 0.3)).toBeGreaterThan(0.3);
+    expect(applyEase(get('Back Out'), 0.7)).toBeGreaterThan(1);
+    for (let u = 0; u <= 1; u += 0.05) { const v = applyEase(get('Bounce Out'), u); expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1.0001); }
+    expect(applyEase(get('Elastic Out'), 0.2)).toBeGreaterThan(1);
+  });
+});
+
+describe('key operations', () => {
+  const r = (t: number) => ({ layer: 'L', prop: 'position' as const, t });
+  it('moves keys, replacing what they land on, and clamps', () => {
+    const { layers, refs } = moveKeys([animated()], [r(10)], 10);
+    expect(keysOf(layers[0]!).map((k) => k.t)).toEqual([0, 20]);
+    expect(keysOf(layers[0]!)[1]!.v).toEqual([100, 50]);
+    expect(refs).toEqual([r(20)]);
+    expect(moveKeys([animated()], [r(0)], -5).refs).toEqual([r(0)]);
+    expect(keysOf(moveKeys([animated()], [r(0), r(10)], 5, 20).layers[0]!).map((k) => k.t)).toEqual([5, 15, 20]);
+  });
+  it('deletes keys; deleting the last bakes a static value', () => {
+    const one = deleteKeys([animated()], [r(10)]);
+    expect(keysOf(one[0]!).map((k) => k.t)).toEqual([0, 20]);
+    const none = deleteKeys([animated()], [r(0), r(10), r(20)]);
+    expect(none[0]!.transform.position).toEqual({ value: [200, 0] });
+  });
+  it('sets ease and component values', () => {
+    const e = setEaseOnKeys([animated()], [r(0)], 'hold');
+    expect((e[0]!.transform.position as any).keys[0].ease).toBe('hold');
+    const v = setKeyValue([animated()], r(10), 1, 999);
+    expect(keysOf(v[0]!)[1]!.v).toEqual([100, 999]);
+  });
+  it('copy/paste preserves relative timing and ease', () => {
+    const clip = copyKeys([animated()], [r(10), r(20)]);
+    expect(clip.map((c) => c.dt)).toEqual([0, 10]);
+    const target = { ...mk(), id: 'M' };
+    const { layers, refs } = pasteKeys([target], 'M', clip, 100);
+    expect(keysOf(layers[0]!).map((k) => k.t)).toEqual([100, 110]);
+    expect(refs).toHaveLength(2);
+    expect(pruneRefs(layers, [...refs, { layer: 'M', prop: 'position', t: 5 }])).toHaveLength(2);
+  });
+  it('finds next/prev key', () => {
+    const L = [animated()];
+    expect(nextKeyTime(L, ['L'], 0, 1)).toBe(10); expect(nextKeyTime(L, ['L'], 10, -1)).toBe(0);
+    expect(nextKeyTime(L, ['L'], 20, 1)).toBeNull(); expect(nextKeyTime(L, ['x'], 0, 1)).toBeNull();
+  });
+});
+
+describe('work area', () => {
+  it('defaults to the full duration and clamps', () => {
+    const p = createProject();
+    expect(workRange(p)).toEqual([0, 300]);
+    expect(workRange({ ...p, workArea: [50, 100] })).toEqual([50, 100]);
+    expect(workRange({ ...p, workArea: [500, 900] })).toEqual([299, 300]);
+  });
+});
