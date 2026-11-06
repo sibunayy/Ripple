@@ -7,7 +7,7 @@ export function Library() {
   return (
     <main class="library">
       <header>
-        <h1>Ripple</h1>
+        <h1>RippleFlow</h1>
         <button class="btn primary" onClick={() => void newProject()}>＋ New project</button>
       </header>
       {items.length === 0 ? (

@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: 'prompt', // never reload mid-edit; the UI shows an update toast
       includeAssets: ['apple-touch-icon.png', 'icon.svg'],
       manifest: {
-        name: 'Ripple',
-        short_name: 'Ripple',
+        name: 'RippleFlow',
+        short_name: 'RippleFlow',
         description: 'Lightweight motion graphics for iPad',
         start_url: base,
         scope: base,
