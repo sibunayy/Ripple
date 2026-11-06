@@ -82,6 +82,7 @@ export interface Layer {
   effects?: Effect[];
   precomp?: PrecompRef;
   media?: MediaRef;
+  motionBlur?: boolean;
 }
 
 export const DEFAULT_EASE: Ease = [0.42, 0, 0.58, 1];

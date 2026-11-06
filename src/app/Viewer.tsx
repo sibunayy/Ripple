@@ -61,11 +61,11 @@ export function Viewer() {
       // Render in comp space; scale to the buffer via the resolution uniform.
       const t = playhead.peek();
       syncVideos(p.layers, p.comps, t, p.settings.fps, playing.peek());
-      r.render(p.layers, { width, height, bg, t, comps: p.comps, fps: p.settings.fps, linear: p.settings.linearLight });
+      r.render(p.layers, { width, height, bg, t, comps: p.comps, fps: p.settings.fps, linear: p.settings.linearLight, motionBlur: p.settings.motionBlur?.on && mbPreview.value ? { shutter: p.settings.motionBlur.shutter, samples: Math.min(4, p.settings.motionBlur.samples) } : undefined });
     };
     const schedule = () => { if (!queued) queued = requestAnimationFrame(draw); };
     r.onRestore = schedule;
-    const stop = effect(() => { current.value; playhead.value; fontRev.value; mediaRev.value; playing.value; schedule(); });
+    const stop = effect(() => { current.value; playhead.value; fontRev.value; mediaRev.value; playing.value; mbPreview.value; schedule(); });
     return () => { stop(); cancelAnimationFrame(queued); renderer.current = null; };
   }, []);
 
@@ -465,6 +465,8 @@ function MotionPath({ layer, px }: { layer: Layer; px: number }) {
 }
 
 const guides = signal<{ x?: number; y?: number }>({});
+/** Preview motion blur in the viewer (4 samples max); exports always use the project's full setting. */
+export const mbPreview = signal(false);
 const layerBoxOf = (r: ReturnType<typeof evaluate>[number], t: number) => layerBox(r.layer, t);
 /** Rotation handle: 28 screen px beyond the middle of the top edge. */
 function rotHandle(cs: Vec2[], zoom: number): Vec2 {

@@ -80,3 +80,23 @@ describe('presets', () => {
     expect(presetFromLayer(l, 'none', 30, 'u2')).toBeNull();
   });
 });
+
+import { parseCube, identityLut, lutRGBA, fromB64 } from '../src/render/lut';
+describe('.cube LUTs', () => {
+  const cube = (n: number, extra = '') => `TITLE "T"\nLUT_3D_SIZE ${n}\n${extra}${Array.from({ length: n ** 3 }, (_, i) => `${(i % n) / (n - 1)} ${(Math.floor(i / n) % n) / (n - 1)} ${Math.floor(i / n / n) / (n - 1)}`).join('\n')}`;
+  it('parses size, title and data (R fastest)', () => {
+    const l = parseCube(cube(3)); expect(l.size).toBe(3); expect(l.name).toBe('T');
+    const b = fromB64(l.b64); expect(b.length).toBe(27 * 3); expect(Array.from(b.slice(3, 6))).toEqual([128, 0, 0]);
+  });
+  it('honours DOMAIN_MIN/MAX and rejects 1D / truncated files', () => {
+    const l = parseCube(`LUT_3D_SIZE 2\nDOMAIN_MIN 0 0 0\nDOMAIN_MAX 2 2 2\n${Array(8).fill('2 1 0').join('\n')}`);
+    expect(Array.from(fromB64(l.b64).slice(0, 3))).toEqual([255, 128, 0]);
+    expect(() => parseCube('LUT_1D_SIZE 4\n0 0 0')).toThrow(/1D/);
+    expect(() => parseCube('LUT_3D_SIZE 2\n0 0 0')).toThrow(/entries/);
+    expect(() => parseCube('hello')).toThrow();
+  });
+  it('identity LUT expands to RGBA with opaque alpha', () => {
+    const i = identityLut(), rgba = lutRGBA(i);
+    expect(rgba.length).toBe(i.size ** 3 * 4); expect(rgba[3]).toBe(255); expect(rgba[rgba.length - 2]).toBe(255);
+  });
+});

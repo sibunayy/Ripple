@@ -3,6 +3,8 @@ import { addEffect, current, frame, moveEffect, playhead, removeEffect, selectio
 import { NumField } from '../ui/NumField';
 import { hasKeyAt, isAnimated } from '../anim/interp';
 import { fromHex, toHex, type ColorRGBA } from '../model/project';
+import { parseCube, type Lut3D } from '../render/lut';
+import { notice, setEffectData } from './state';
 import { propOf, type Layer, type Vec2 } from '../model/layer';
 import { EFFECTS, EFFECT_BY_TYPE, defaultCurves, curveLUT, paramKey, type Curves, type ParamDef } from '../render/effects';
 
@@ -34,6 +36,7 @@ export function EffectsPanel() {
               <button class="btn sm danger" aria-label="Remove effect" onClick={() => removeEffect(l.id, e.id)}>✕</button>
             </div>
             {def.params.map((pd) => <Param key={pd.key} layer={l} effectId={e.id} def={pd} t={t} />)}
+            {def.type === 'lut3d' && <LutPicker layerId={l.id} effectId={e.id} lut={e.data as Lut3D | undefined} />}
             {def.type === 'curves' && <CurvesEditor layer={l} effectId={e.id} data={(e.data as Curves) ?? defaultCurves()} />}
           </section>
         );
@@ -91,6 +94,21 @@ function CurvesEditor({ layer, effectId, data }: { layer: Layer; effectId: strin
         <polyline points={Array.from(lut, (y, i) => `${i / 63},${1 - y}`).join(' ')} fill="none" stroke={CH_COLOR[ch]} stroke-width="0.012" />
         {pts.map((p, i) => <circle key={i} cx={p[0]} cy={1 - p[1]} r="0.03" fill="var(--surface)" stroke={CH_COLOR[ch]} stroke-width="0.012" />)}
       </svg>
+    </div>
+  );
+}
+
+function LutPicker({ layerId, effectId, lut }: { layerId: string; effectId: string; lut?: Lut3D }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div class="seg wrap">
+      <button class="btn sm" onClick={() => input.current?.click()}>Import .cube…</button>
+      <span class="hint">{lut?.name ?? 'Identity'}{lut ? ` · ${lut.size}³` : ''}</span>
+      <input ref={input} type="file" accept=".cube,text/plain" hidden onChange={async (e) => {
+        const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return;
+        try { setEffectData(layerId, effectId, parseCube(await f.text(), f.name.replace(/\.cube$/i, ''))); } catch (err) { notice.value = (err as Error).message; }
+        (e.target as HTMLInputElement).value = '';
+      }} />
     </div>
   );
 }

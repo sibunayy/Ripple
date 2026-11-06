@@ -1,5 +1,5 @@
 import { useRef } from 'preact/hooks';
-import { editMedia, activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
+import { editLayer, editMedia, activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
 import { nodeSel } from './tools';
 import { NumField } from '../ui/NumField';
 import { hasKeyAt, isAnimated } from '../anim/interp';
@@ -79,6 +79,7 @@ export function Inspector() {
               <option value="alpha">Alpha</option><option value="alphaInv">Alpha inverted</option><option value="luma">Luma</option><option value="lumaInv">Luma inverted</option>
             </select>
           </div></label>
+        <label class="check"><input type="checkbox" checked={!!l.motionBlur} onChange={(e) => editLayer(l.id, 'Motion blur', (x) => ({ ...x, motionBlur: (e.target as HTMLInputElement).checked }))} /> Motion blur</label>
         <label class="check"><input type="checkbox" checked={!!l.clip} onChange={(e) => setClip(l.id, (e.target as HTMLInputElement).checked)} /> Clip to layer below</label>
         {l.type === 'precomp' && l.precomp && <button class="btn sm" onClick={() => enterComp(l.precomp!.comp)}>Open composition</button>}
       </Section>

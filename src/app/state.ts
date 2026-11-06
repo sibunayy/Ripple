@@ -204,6 +204,8 @@ export const moveEffect = (layerId: string, effectId: string, dir: -1 | 1) =>
     [fx[i], fx[j]] = [fx[j]!, fx[i]!];
     return { ...l, effects: fx };
   });
+export const setEffectData = (layerId: string, effectId: string, data: unknown) =>
+  editLayer(layerId, 'Edit effect data', (l) => ({ ...l, effects: l.effects?.map((e) => (e.id === effectId ? { ...e, data } : e)) }));
 export const setCurves = (layerId: string, effectId: string, data: Curves) =>
   editLayer(layerId, 'Edit curves', (l) => ({ ...l, effects: l.effects?.map((e) => (e.id === effectId ? { ...e, data } : e)) }), `curves:${effectId}`);
 

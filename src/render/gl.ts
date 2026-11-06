@@ -108,7 +108,7 @@ in vec2 v_uv; uniform sampler2D u_a; uniform sampler2D u_b; uniform sampler2D u_
 void main(){ float k = texture(u_cov, v_uv).a * u_op; o = texture(u_a, v_uv) * (1.0 - k) + texture(u_b, v_uv) * k; }`;
 
 export const FULLSCREEN_VS = FVS;
-export interface FrameInfo { width: number; height: number; bg: ColorRGBA; t?: number; comps?: Record<string, Comp>; fps?: number; linear?: boolean }
+export interface FrameInfo { width: number; height: number; bg: ColorRGBA; t?: number; comps?: Record<string, Comp>; fps?: number; linear?: boolean; motionBlur?: { shutter: number; samples: number } }
 export interface RT { tex: WebGLTexture; fbo: WebGLFramebuffer; w: number; h: number; f16?: boolean }
 export type Prog = { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null> };
 const MAX_DEPTH = 6;
@@ -443,7 +443,11 @@ export class GLRenderer {
   renderLayers(layers: readonly Layer[], cw: number, ch: number, ctx: Ctx, bg: ColorRGBA | null): RT {
     const { gl } = this;
     const w = Math.max(1, Math.round(cw * ctx.k)), h = Math.max(1, Math.round(ch * ctx.k));
-    const resolved = evaluate(layers, ctx.t);
+    let resolved = evaluate(layers, ctx.t);
+    if (ctx.tmb !== undefined && ctx.depth === 0) { // motion-blur sub-sample: flagged layers move to the sample time
+      const sub = evaluate(layers, ctx.tmb);
+      resolved = resolved.map((r, i) => (r.layer.motionBlur ? sub[i]! : r));
+    }
     const byId = new Map(resolved.map((r) => [r.layer.id, r]));
     const matteSrc = new Set(layers.map((l) => l.matte?.layer).filter(Boolean) as string[]);
     let acc = this.getRT(w, h);
@@ -506,13 +510,34 @@ export class GLRenderer {
     this.linear = !!f.linear;
     const k = this.canvas.width / f.width;
     const ctx: Ctx = { t: f.t ?? 0, k, comps: f.comps ?? {}, cw: f.width, ch: f.height, fps: f.fps ?? 30, depth: 0 };
-    const acc = this.renderLayers(layers, f.width, f.height, ctx, f.bg);
+    const mb = f.motionBlur && f.motionBlur.samples > 1 && layers.some((l) => l.motionBlur) ? f.motionBlur : null;
+    const acc = mb ? this.motionBlurred(layers, f, ctx, mb) : this.renderLayers(layers, f.width, f.height, ctx, f.bg);
     this.bind(null);
     const p = this.progs.copy;
     this.fs(p); this.tex(0, acc.tex);
     gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, 1); gl.uniform1i(p.u.u_encode!, this.linear ? 1 : 0);
     this.fullscreen();
     this.release(acc);
+  }
+
+  /** Temporal supersampling: average `samples` sub-frame renders spread over the shutter interval (half-float accumulator). */
+  private motionBlurred(layers: readonly Layer[], f: FrameInfo, ctx: Ctx, mb: { shutter: number; samples: number }): RT {
+    const { gl } = this, n = Math.min(32, Math.max(2, Math.round(mb.samples)));
+    const w = Math.max(1, Math.round(f.width * ctx.k)), h = Math.max(1, Math.round(f.height * ctx.k));
+    const prev = this.linear; if (this.floatOK) this.linear = true; // borrow the half-float format for the accumulator
+    const sum = this.getRT(w, h); this.linear = prev;
+    this.clear(sum, [0, 0, 0, 0]);
+    const span = mb.shutter / 360; // frames
+    for (let i = 0; i < n; i++) {
+      const sub = this.renderLayers(layers, f.width, f.height, { ...ctx, tmb: ctx.t + (i / n - 0.5) * span + span / (2 * n) }, f.bg);
+      this.bind(sum);
+      const p = this.progs.copy; this.fs(p); this.tex(0, sub.tex);
+      gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, 1 / n); gl.uniform1i(p.u.u_encode!, 0);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      this.release(sub);
+    }
+    return sum;
   }
 
   /** Read one pixel (comp-buffer coordinates, origin top-left). For tests/debug only. */
@@ -525,7 +550,7 @@ export class GLRenderer {
   }
 }
 
-export interface Ctx { t: number; k: number; comps: Record<string, Comp>; cw: number; ch: number; fps: number; depth: number }
+export interface Ctx { /** per-layer motion-blur sample time (frames); flagged layers use it instead of `t` */ tmb?: number; t: number; k: number; comps: Record<string, Comp>; cw: number; ch: number; fps: number; depth: number }
 const gl_use = (r: GLRenderer, p: Prog) => r.gl.useProgram(p.p);
 
 const srgb3 = (c: readonly number[]): [number, number, number] => [0, 1, 2].map((i) => (c[i]! <= 0.04045 ? c[i]! / 12.92 : ((c[i]! + 0.055) / 1.055) ** 2.4)) as [number, number, number];

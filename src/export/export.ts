@@ -60,7 +60,7 @@ export class FrameSource {
   /** Render frame `t` into `canvas` (valid until the next call). */
   render(t: number) {
     const { settings: s, layers, comps } = this.p;
-    this.renderer.render(layers, { width: s.width, height: s.height, bg: this.transparent ? [s.bg[0], s.bg[1], s.bg[2], 0] : s.bg, t, comps, fps: s.fps, linear: s.linearLight });
+    this.renderer.render(layers, { width: s.width, height: s.height, bg: this.transparent ? [s.bg[0], s.bg[1], s.bg[2], 0] : s.bg, t, comps, fps: s.fps, linear: s.linearLight, motionBlur: s.motionBlur?.on ? { shutter: s.motionBlur.shutter, samples: s.motionBlur.samples } : undefined });
     return this.canvas;
   }
 }
