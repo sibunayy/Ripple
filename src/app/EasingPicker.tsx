@@ -2,7 +2,7 @@ import { EASINGS, sampleEase } from '../anim/easings';
 import { isAnimated } from '../anim/interp';
 import { sameKey } from '../anim/keys';
 import { current, keySel, setEaseOnSelected } from './state';
-import type { Ease, Prop } from '../model/layer';
+import { propOf, type Ease, type Prop } from '../model/layer';
 
 const same = (a: Ease, b: Ease) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -21,7 +21,8 @@ export function easePath(e: Ease): string {
 function firstEase(): Ease | null {
   const p = current.value!, r = keySel.value[0];
   if (!r) return null;
-  const prop = p.layers.find((l) => l.id === r.layer)?.transform[r.prop] as Prop<unknown> | undefined;
+  const lay = p.layers.find((l) => l.id === r.layer);
+  const prop = lay && (propOf(lay, r.prop) as Prop<unknown> | undefined);
   return prop && isAnimated(prop) ? prop.keys.find((k) => sameKey({ ...r, t: k.t }, r))?.ease ?? null : null;
 }
 

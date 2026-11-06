@@ -4,6 +4,7 @@ import {
   addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
   keySel, moveSelectedKeys, pasteKeyframes, playhead, redo, rename, saveState, selection, setSettings, setWorkArea, undo, undoLabel,
 } from './state';
+import { cancelPen, deleteSelectedNode, finishPen, nodeSel, penDraft, setTool, TOOLS, tool } from './tools';
 import { pause, play, playing, seek, step, togglePlay } from './playback';
 import { Viewer } from './Viewer';
 import { Timeline } from './Timeline';
@@ -34,6 +35,9 @@ function useShortcuts() {
         return;
       }
       if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && keySel.peek().length && e.shiftKey && mod) { e.preventDefault(); moveSelectedKeys(e.key === 'ArrowRight' ? 1 : -1); return; }
+      if (e.key === 'Escape') { if (penDraft.peek()) cancelPen(); setTool('select'); return; }
+      if (e.key === 'Enter' && penDraft.peek()) { e.preventDefault(); finishPen(false); return; }
+      if (!mod && !e.altKey) { const tl = TOOLS.find((x) => x.key.toLowerCase() === k); if (tl) { e.preventDefault(); setTool(tl.id); return; } }
       if (k === 'm' && !mod) { e.preventDefault(); addMarker(); return; }
       if (k === 'i' && !mod) { e.preventDefault(); const p = current.peek()!; setWorkArea([frame(), p.workArea?.[1] ?? p.settings.duration]); return; }
       if (k === 'o' && !mod) { e.preventDefault(); const p = current.peek()!; setWorkArea([p.workArea?.[0] ?? 0, frame() + 1]); return; }
@@ -42,7 +46,7 @@ function useShortcuts() {
       else if (e.key === 'ArrowRight') { e.preventDefault(); step(e.shiftKey ? 10 : 1); }
       else if (e.key === 'Home') { e.preventDefault(); seek(0); }
       else if (e.key === 'End') { e.preventDefault(); seek(Infinity); }
-      else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (keySel.peek().length) deleteSelectedKeys(); else deleteLayers(selection.peek()); }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (nodeSel.peek() !== null && deleteSelectedNode()) return; if (keySel.peek().length) deleteSelectedKeys(); else deleteLayers(selection.peek()); }
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);

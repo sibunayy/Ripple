@@ -8,8 +8,8 @@ import { sameKey, type KeyRef } from '../anim/keys';
 import { workRange } from '../model/project';
 import { Graph } from './Graph';
 import { EasingPicker } from './EasingPicker';
-import { animatedProps, PROP_LABEL } from './props';
-import type { Layer, Prop, TransformKey } from '../model/layer';
+import { animatedProps, propLabel } from './props';
+import { allProps, propOf, type Layer, type Prop, type PropKey } from '../model/layer';
 
 const NAME_W = 150;
 const MIN_PPF = 0.5, MAX_PPF = 40;
@@ -17,7 +17,7 @@ const px = (n: number) => `${n}px`;
 
 const keyTimes = (l: Layer): number[] => {
   const ts = new Set<number>();
-  for (const p of Object.values(l.transform) as Prop<unknown>[]) if (isAnimated(p)) for (const k of p.keys) ts.add(k.t);
+  for (const [, p] of allProps(l)) if (isAnimated(p)) for (const k of p.keys) ts.add(k.t);
   return [...ts];
 };
 
@@ -152,8 +152,8 @@ function LayerRows({ layer: l, ppf, on, open }: { layer: Layer; ppf: number; on:
 }
 
 /** One animated property: selectable, draggable keyframe diamonds; sweep on empty space to box-select in time. */
-function PropRow({ layer: l, prop, ppf, width }: { layer: Layer; prop: TransformKey; ppf: number; width: string }) {
-  const p = l.transform[prop] as Prop<unknown>;
+function PropRow({ layer: l, prop, ppf, width }: { layer: Layer; prop: PropKey; ppf: number; width: string }) {
+  const p = propOf(l, prop) as Prop<unknown>;
   const keys = isAnimated(p) ? p.keys : [];
   const sel = keySel.value;
   const ref = (t: number): KeyRef => ({ layer: l.id, prop, t });
@@ -190,8 +190,8 @@ function PropRow({ layer: l, prop, ppf, width }: { layer: Layer; prop: Transform
 
   return (
     <div class="tl-row sub">
-      <div class="tl-name" title={PROP_LABEL[prop]}>
-        <button class="propname" onClick={() => { keySel.value = keys.map((k) => ref(k.t)); selection.value = [l.id]; }}>{PROP_LABEL[prop]}</button>
+      <div class="tl-name" title={propLabel(prop)}>
+        <button class="propname" onClick={() => { keySel.value = keys.map((k) => ref(k.t)); selection.value = [l.id]; }}>{propLabel(prop)}</button>
       </div>
       <div class="tl-track" style={{ width }} onPointerDown={down} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
         {keys.map((k) => (

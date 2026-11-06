@@ -98,7 +98,7 @@ input[type='color'] { width: 100%; height: var(--hit); border: 1px solid var(--l
 @media (prefers-reduced-motion: no-preference) { .btn { transition: background .12s, border-color .12s; } }
 
 /* Panels */
-.panel-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
 .layers { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .layers li { border: 1px solid transparent; border-radius: 10px; background: var(--surface-2); }
 .layers li.on { border-color: var(--accent); }
@@ -173,3 +173,16 @@ input[type='color'] { width: 100%; height: var(--hit); border: 1px solid var(--l
 .ease-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
 .ease { display: grid; justify-items: center; gap: 2px; padding: 6px 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; min-height: var(--hit); }
 .ease.on { color: var(--accent); border-color: var(--accent); } .ease:hover { color: var(--text); }
+
+/* M3: tools, shapes, text */
+.tools { position: absolute; left: 12px; top: 12px; display: grid; gap: 4px; background: var(--surface) !important; border: 1px solid var(--line); border-radius: 12px; padding: 4px; z-index: 5; }
+.tools .btn { width: 40px; padding: 0; font-size: 17px; }
+.tbox { background: transparent; border: 1px dashed var(--accent); outline: none; resize: none; padding: 0; margin: 0; overflow: hidden; white-space: pre; z-index: 4; }
+.sec { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.sec h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.seg { display: flex; gap: 4px; } .seg.wrap { flex-wrap: wrap; } .seg .btn { flex: 1; text-transform: capitalize; padding: 0 8px; }
+.prop .fields.one { grid-template-columns: 1fr; }
+.stop { display: grid; grid-template-columns: 56px 1fr 36px; gap: 6px; align-items: center; }
+.stop input[type='color'] { height: 36px; padding: 2px; }
+.textin { width: 100%; min-height: 70px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); color: var(--text); font: inherit; padding: 8px; resize: vertical; }
+.check { display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 14px; }

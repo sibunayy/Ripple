@@ -3,24 +3,26 @@ import { current, keySel, moveSelectedKeys, playhead, selection, setEaseOnSelect
 import { seek } from './playback';
 import { evalProp, isAnimated } from '../anim/interp';
 import { sameKey, type KeyRef } from '../anim/keys';
-import { animatedProps, PROP_LABEL } from './props';
-import type { Ease, Keyframe, Layer, Prop, TransformKey } from '../model/layer';
+import { animatedProps, compLabels, propLabel } from './props';
+import { propOf, type Ease, type Keyframe, type Layer, type Prop, type PropKey } from '../model/layer';
 
 const COLORS = ['#ff6b6b', '#4cc9f0', '#ffd166', '#7bd88f', '#c792ea', '#ff9f68', '#9aa5ff', '#5eead4'];
 const PAD = { l: 44, r: 16, t: 26, b: 12 };
 
-interface Channel { id: string; layer: Layer; prop: TransformKey; comp: number; label: string; color: string }
+interface Channel { id: string; layer: Layer; prop: PropKey; comp: number; label: string; color: string }
 type K = Keyframe<number | number[]>;
 const comp = (v: number | number[], c: number) => (typeof v === 'number' ? v : v[c] ?? 0);
 
 function channelsFor(layers: Layer[]): Channel[] {
   const out: Channel[] = [];
   for (const l of layers) for (const prop of animatedProps(l)) {
-    const p = l.transform[prop] as Prop<number | number[]>;
-    const n = isAnimated(p) && typeof p.keys[0]!.v !== 'number' ? 2 : 1;
+    const p = propOf(l, prop) as Prop<number | number[]>;
+    const v0 = isAnimated(p) ? p.keys[0]!.v : 0;
+    const n = typeof v0 === 'number' ? 1 : v0.length;
+    const names = compLabels(prop, n);
     for (let c = 0; c < n; c++) out.push({
       id: `${l.id}:${prop}:${c}`, layer: l, prop, comp: c,
-      label: `${PROP_LABEL[prop]}${n > 1 ? (c ? ' Y' : ' X') : ''}`, color: COLORS[out.length % COLORS.length]!,
+      label: `${propLabel(prop)}${n > 1 ? ' ' + names[c] : ''}`, color: COLORS[out.length % COLORS.length]!,
     });
   }
   return out;
@@ -54,7 +56,7 @@ export function Graph() {
   const { curves, lo, hi } = useMemo(() => {
     let lo = Infinity, hi = -Infinity;
     const curves = visible.map((c) => {
-      const prop = c.layer.transform[c.prop] as Prop<number | number[]>;
+      const prop = propOf(c.layer, c.prop) as Prop<number | number[]>;
       const keys = (prop as { keys: K[] }).keys;
       const t0 = keys[0]!.t, t1 = keys[keys.length - 1]!.t;
       const pts: [number, number][] = [];
@@ -87,11 +89,11 @@ export function Graph() {
       const r: KeyRef = { layer: c.layer.id, prop: c.prop, t }, cur = keySel.peek();
       if (e.shiftKey) keySel.value = cur.some((s) => sameKey(s, r)) ? cur.filter((s) => !sameKey(s, r)) : [...cur, r];
       else if (!cur.some((s) => sameKey(s, r))) keySel.value = [r];
-      const keys = (c.layer.transform[c.prop] as { keys: K[] }).keys;
+      const keys = (propOf(c.layer, c.prop) as { keys: K[] }).keys;
       drag.current = { kind: 'key', c, t, x0: q.x, y0: q.y, v0: comp(keys.find((k) => k.t === t)!.v, c.comp), applied: 0 };
     } else if (tgt.handle) {
       const c = channels.find((x) => x.id === tgt.ch)!, t = Number(tgt.t);
-      const keys = (c.layer.transform[c.prop] as { keys: K[] }).keys;
+      const keys = (propOf(c.layer, c.prop) as { keys: K[] }).keys;
       const i = keys.findIndex((k) => k.t === t);
       const ease = bezierOf(keys[i]!.ease)!;
       drag.current = { kind: 'handle', c, ref: { layer: c.layer.id, prop: c.prop, t }, which: tgt.handle === '1' ? 1 : 2, k0: keys[i]!, k1: keys[i + 1]!, ease };
@@ -124,7 +126,7 @@ export function Graph() {
   const hc = active && visible.find((c) => c.layer.id === active.layer && c.prop === active.prop);
   const handles = (() => {
     if (!active || !hc) return null;
-    const keys = (hc.layer.transform[hc.prop] as { keys: K[] }).keys;
+    const keys = (propOf(hc.layer, hc.prop) as { keys: K[] }).keys;
     const i = keys.findIndex((k) => k.t === active.t);
     const k0 = keys[i], k1 = keys[i + 1];
     const e = k0 && bezierOf(k0.ease);
@@ -164,7 +166,7 @@ export function Graph() {
                 <circle cx={X(pt[0])} cy={Y(pt[1])} r="5" class="g-hd" pointer-events="none" /></g>
             ))}
           </g>}
-          {visible.map((c) => (c.layer.transform[c.prop] as { keys: K[] }).keys.map((k) => {
+          {visible.map((c) => (propOf(c.layer, c.prop) as { keys: K[] }).keys.map((k) => {
             const on = keySel.value.some((s) => sameKey(s, { layer: c.layer.id, prop: c.prop, t: k.t }));
             return <g key={`${c.id}:${k.t}`}>
               <circle cx={X(k.t)} cy={Y(comp(k.v, c.comp))} r="14" fill="transparent" data-key={k.t} data-ch={c.id} />

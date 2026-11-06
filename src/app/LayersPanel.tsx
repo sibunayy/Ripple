@@ -1,3 +1,4 @@
+import { setTool } from './tools';
 import { addLayer, current, deleteLayers, duplicateLayers, moveLayer, renameLayer, selection, setParent, toggleVisible } from './state';
 
 export function LayersPanel() {
@@ -10,6 +11,8 @@ export function LayersPanel() {
         <span class="spacer" />
         <button class="btn sm" onClick={() => addLayer('solid')} aria-label="Add solid layer">＋ Solid</button>
         <button class="btn sm" onClick={() => addLayer('null')} aria-label="Add null layer">＋ Null</button>
+        <button class="btn sm" onClick={() => setTool('rect')} aria-label="Draw a shape">＋ Shape</button>
+        <button class="btn sm" onClick={() => setTool('text')} aria-label="Add text">＋ Text</button>
       </div>
       {p.layers.length === 0 && <p class="hint">Add a solid to get started.</p>}
       <ul class="layers">
@@ -20,7 +23,7 @@ export function LayersPanel() {
               <div class="row1" onClick={(e) => { selection.value = e.shiftKey ? (on ? sel.filter((x) => x !== l.id) : [...sel, l.id]) : [l.id]; }}>
                 <button class={`eye ${l.visible ? '' : 'off'}`} aria-label={l.visible ? 'Hide layer' : 'Show layer'} aria-pressed={l.visible}
                   onClick={(e) => { e.stopPropagation(); toggleVisible(l.id); }}>{l.visible ? '●' : '○'}</button>
-                <i class="chip" style={{ background: l.type === 'solid' ? `rgb(${l.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'transparent' }} />
+                <i class="chip" title={l.type} style={{ background: l.type === 'solid' || l.type === 'shape' ? `rgb(${l.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'transparent' }}>{l.type === 'text' ? 'T' : ''}</i>
                 <input class="name" value={l.name} aria-label="Layer name" onClick={(e) => e.stopPropagation()}
                   onChange={(e) => renameLayer(l.id, (e.target as HTMLInputElement).value)} />
               </div>

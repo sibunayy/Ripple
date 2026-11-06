@@ -1,7 +1,9 @@
 import { signal } from '@preact/signals';
 import { createProject, newId, sanitizeSettings, workRange, type Project, type ProjectSettings } from '../model/project';
 import { History } from '../model/history';
-import { createLayer, type Layer, type TransformKey, type Vec2, type Prop } from '../model/layer';
+import { createLayer, createShapeLayer, createTextLayer, propOf, withProp, type BezPath, type Layer, type PropKey, type ShapeContent, type ShapeKind, type TextContent, type Vec2, type Prop } from '../model/layer';
+import { recenter } from '../shape/path';
+import { shapePath } from '../shape/geometry';
 import { evalProp, writeProp, toggleAnimated } from '../anim/interp';
 import { reparent } from '../eval/evaluate';
 import { copyKeys, deleteKeys, moveKeys, nextKeyTime, pasteKeys, pruneRefs, setEaseOnKeys, setKeyValue, type ClipEntry, type KeyRef } from '../anim/keys';
@@ -142,22 +144,70 @@ export function setTiming(id: string, inF: number, outF: number, key?: string) {
 }
 
 /** Write a transform value at the playhead (auto-keys when the property is animated). */
-export function setTransform(id: string, prop: TransformKey, value: number | Vec2, key?: string) {
+export function setProp(id: string, prop: PropKey, value: number | number[], key?: string) {
   const t = frame();
-  commit(`Edit ${prop}`, (p) => mapLayer(p, id, (l) => ({
-    ...l, transform: { ...l.transform, [prop]: writeProp(l.transform[prop] as Prop<never>, t, value as never) },
-  })), key ?? `${prop}:${id}`);
+  commit(`Edit ${prop}`, (p) => mapLayer(p, id, (l) => {
+    const cur = propOf(l, prop); if (!cur) return l;
+    return withProp(l, prop, writeProp(cur as Prop<never>, t, value as never));
+  }), key ?? `${prop}:${id}`);
 }
+export const setTransform = setProp;
 
-export function toggleStopwatch(id: string, prop: TransformKey) {
+export function toggleStopwatch(id: string, prop: PropKey) {
   const t = frame();
   if (!expanded.peek().includes(id)) expanded.value = [...expanded.peek(), id];
-  commit('Toggle animation', (p) => mapLayer(p, id, (l) => ({
-    ...l, transform: { ...l.transform, [prop]: toggleAnimated(l.transform[prop] as Prop<never>, t) },
-  })));
+  commit('Toggle animation', (p) => mapLayer(p, id, (l) => {
+    const cur = propOf(l, prop); return cur ? withProp(l, prop, toggleAnimated(cur as Prop<never>, t)) : l;
+  }));
 }
 
-export const valueAt = (l: Layer, prop: TransformKey, t = frame()) => evalProp(l.transform[prop] as Prop<never>, t) as number | Vec2;
+export const valueAt = (l: Layer, prop: PropKey, t = frame()) => evalProp(propOf(l, prop) as Prop<never>, t) as number | Vec2;
+
+// ---- shapes & text -------------------------------------------------------------------------------
+
+/** Replace a layer through a pure function (shape/text content edits). */
+export const editLayer = (id: string, label: string, fn: (l: Layer) => Layer, key?: string) =>
+  commit(label, (p) => mapLayer(p, id, fn), key);
+
+export const editShape = (id: string, fn: (s: ShapeContent) => ShapeContent, key?: string) =>
+  editLayer(id, 'Edit shape', (l) => (l.shape ? { ...l, shape: fn(l.shape) } : l), key ? `${key}:${id}` : undefined);
+
+export const editText = (id: string, patch: Partial<TextContent>, key?: string) =>
+  editLayer(id, 'Edit text', (l) => (l.text ? { ...l, text: { ...l.text, ...patch } } : l), key ? `${key}:${id}` : undefined);
+
+export const setPath = (id: string, path: BezPath, key?: string) =>
+  editShape(id, (s) => ({ ...s, path }), key ?? 'path');
+
+/** Add a shape layer; `key` lets a creation drag coalesce with later size edits into one undo step. */
+export function addShape(kind: ShapeKind, at: Vec2, path?: BezPath, key?: string): string | null {
+  const p = current.peek(); if (!p) return null;
+  let layer = createShapeLayer(kind, p.settings, p.layers.length, at, path);
+  if (kind === 'path' && path) { const r = recenter(path); layer = createShapeLayer(kind, p.settings, p.layers.length, [at[0] + r.offset[0], at[1] + r.offset[1]], r.path); }
+  commit(`Add ${layer.name}`, (q) => ({ ...q, layers: [layer, ...q.layers] }), key ? `${key}:${layer.id}` : undefined);
+  selection.value = [layer.id];
+  return layer.id;
+}
+
+export function addText(at: Vec2): string | null {
+  const p = current.peek(); if (!p) return null;
+  const layer = createTextLayer(p.settings, p.layers.length, at);
+  commit('Add text layer', (q) => ({ ...q, layers: [layer, ...q.layers] }));
+  selection.value = [layer.id];
+  return layer.id;
+}
+
+/** Turn a primitive (rect/ellipse/polygon/star) into an editable path at the current time. */
+export function convertToPath(id: string) {
+  const t = frame();
+  editLayer(id, 'Convert to path', (l) => {
+    if (l.type !== 'shape' || !l.shape || l.shape.kind === 'path') return l;
+    const path = shapePath(l, t); if (!path) return l;
+    const props = { ...l.props };
+    for (const k of Object.keys(props)) if (k.startsWith('shape.')) delete props[k];
+    return { ...l, props, shape: { ...l.shape, kind: 'path', path } };
+  });
+}
+
 
 // ---- keyframes -----------------------------------------------------------------
 
