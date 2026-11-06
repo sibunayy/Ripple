@@ -1,6 +1,6 @@
 // Project library persistence (spec §3, §5.2): OPFS for project files, IndexedDB for the index.
 // If OPFS is unavailable the project JSON is kept in IndexedDB as well.
-import type { Project } from '../model/project';
+import { migrate, type Project } from '../model/project';
 
 export interface ProjectMeta {
   id: string;
@@ -79,7 +79,7 @@ export async function loadProject(id: string): Promise<Project | null> {
   } else {
     json = await tx<string | undefined>(BLOBS, 'readonly', (s) => s.get(id));
   }
-  return json ? (JSON.parse(json) as Project) : null;
+  return json ? migrate(JSON.parse(json) as Project) : null;
 }
 
 export async function listProjects(): Promise<ProjectMeta[]> {
