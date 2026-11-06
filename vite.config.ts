@@ -1,12 +1,16 @@
 import { defineConfig } from 'vitest/config';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
 // GitHub Pages serves the repo under /<repo>/. Override with BASE=/ for root hosting.
 const base = process.env.BASE ?? '/Ripple/';
 
 export default defineConfig({
   base,
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   build: { target: 'es2022', sourcemap: false },
   plugins: [
     preact(),
@@ -29,7 +33,7 @@ export default defineConfig({
           { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], navigateFallback: 'index.html' },
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], globIgnores: ['splash/**'], navigateFallback: 'index.html' },
     }),
   ],
   test: { include: ['tests/**/*.test.ts'] },

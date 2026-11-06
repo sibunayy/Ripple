@@ -38,14 +38,14 @@ export function Inspector() {
     return (
       <div class="prop"><span class="pname">{name}</span><Watch k={k} />
         <div class="fields">
-          <NumField label="X" value={v[0]} step={step} min={min} onChange={(x) => setProp(l.id, k, [x, v[1]])} />
-          <NumField label="Y" value={v[1]} step={step} min={min} onChange={(y) => setProp(l.id, k, [v[0], y])} />
+          <NumField label="X" aria={`${name} X`} value={v[0]} step={step} min={min} onChange={(x) => setProp(l.id, k, [x, v[1]])} />
+          <NumField label="Y" aria={`${name} Y`} value={v[1]} step={step} min={min} onChange={(y) => setProp(l.id, k, [v[0], y])} />
         </div></div>
     );
   };
   const num = (k: PropKey, name: string, step = 1, min?: number, max?: number) => !has(k) ? null : (
     <div class="prop"><span class="pname">{name}</span><Watch k={k} />
-      <div class="fields"><NumField label="" value={valueAt(l, k, t) as number} step={step} min={min} max={max} onChange={(v) => setProp(l.id, k, v)} /></div></div>
+      <div class="fields"><NumField label="" aria={name} value={valueAt(l, k, t) as number} step={step} min={min} max={max} onChange={(v) => setProp(l.id, k, v)} /></div></div>
   );
   const colour = (k: PropKey, name: string) => {
     if (!has(k)) return null;
@@ -120,8 +120,8 @@ export function Inspector() {
         <Section title={l.type === 'video' ? 'Video' : 'Image'}>
           <span class="hint">{p.assets[l.media.asset]?.name ?? 'Missing asset'}</span>
           {l.type === 'video' && <>
-            <div class="prop"><span class="pname">Source start (s)</span><span /><div class="fields"><NumField label="" value={l.media.start} step={0.1} min={0} onChange={(v) => editMedia(l.id, { start: v })} /></div></div>
-            <div class="prop"><span class="pname">Speed %</span><span /><div class="fields"><NumField label="" value={l.media.speed * 100} step={5} min={6.25} max={1600} onChange={(v) => editMedia(l.id, { speed: v / 100 })} /></div></div>
+            <div class="prop"><span class="pname">Source start (s)</span><span /><div class="fields"><NumField label="" aria="Source start seconds" value={l.media.start} step={0.1} min={0} onChange={(v) => editMedia(l.id, { start: v })} /></div></div>
+            <div class="prop"><span class="pname">Speed %</span><span /><div class="fields"><NumField label="" aria="Speed percent" value={l.media.speed * 100} step={5} min={6.25} max={1600} onChange={(v) => editMedia(l.id, { speed: v / 100 })} /></div></div>
             <p class="hint">Audio is not part of v1: video plays muted and exports without sound.</p>
           </>}
         </Section>
@@ -242,15 +242,15 @@ function PaintEditor({ layer: l, paint, onChange }: { layer: Layer; paint: Paint
           {paint.stops.map((s, i) => (
             <div class="stop" key={i}>
               <input type="color" aria-label={`Stop ${i + 1} colour`} value={toHex(s.c)} onInput={(e) => onChange({ ...paint, stops: paint.stops.map((q, k) => (k === i ? { ...q, c: fromHex((e.target as HTMLInputElement).value, q.c[3]) } : q)) })} />
-              <NumField label="" value={s.at * 100} step={1} min={0} max={100} onChange={(v) => onChange({ ...paint, stops: paint.stops.map((q, k) => (k === i ? { ...q, at: v / 100 } : q)).sort((a, b) => a.at - b.at) })} />
+              <NumField label="" aria={`Stop ${i + 1} position`} value={s.at * 100} step={1} min={0} max={100} onChange={(v) => onChange({ ...paint, stops: paint.stops.map((q, k) => (k === i ? { ...q, at: v / 100 } : q)).sort((a, b) => a.at - b.at) })} />
               <button class="btn sm" disabled={paint.stops.length <= 2} aria-label="Remove stop" onClick={() => onChange({ ...paint, stops: paint.stops.filter((_, k) => k !== i) })}>✕</button>
             </div>
           ))}
           <button class="btn sm" onClick={() => onChange({ ...paint, stops: [...paint.stops, { at: 0.5, c: [0.5, 0.5, 0.5, 1] as ColorRGBA }].sort((a, b) => a.at - b.at) })}>＋ Stop</button>
           <div class="prop"><span class="pname">{paint.kind === 'radial' ? 'Centre' : 'Start'}</span><span />
-            <div class="fields"><NumField label="X" value={paint.from[0]} onChange={(x) => onChange({ ...paint, from: [x, paint.from[1]] })} /><NumField label="Y" value={paint.from[1]} onChange={(y) => onChange({ ...paint, from: [paint.from[0], y] })} /></div></div>
+            <div class="fields"><NumField label="X" aria="Gradient start X" value={paint.from[0]} onChange={(x) => onChange({ ...paint, from: [x, paint.from[1]] })} /><NumField label="Y" aria="Gradient start Y" value={paint.from[1]} onChange={(y) => onChange({ ...paint, from: [paint.from[0], y] })} /></div></div>
           <div class="prop"><span class="pname">{paint.kind === 'radial' ? 'Radius point' : 'End'}</span><span />
-            <div class="fields"><NumField label="X" value={paint.to[0]} onChange={(x) => onChange({ ...paint, to: [x, paint.to[1]] })} /><NumField label="Y" value={paint.to[1]} onChange={(y) => onChange({ ...paint, to: [paint.to[0], y] })} /></div></div>
+            <div class="fields"><NumField label="X" aria="Gradient end X" value={paint.to[0]} onChange={(x) => onChange({ ...paint, to: [x, paint.to[1]] })} /><NumField label="Y" aria="Gradient end Y" value={paint.to[1]} onChange={(y) => onChange({ ...paint, to: [paint.to[0], y] })} /></div></div>
         </>
       )}
     </>
@@ -268,7 +268,7 @@ function StrokeEditor({ layer: l, stroke, colour, num }: { layer: Layer; stroke:
       <div class="seg" role="group" aria-label="Line cap">{(['butt', 'round', 'square'] as const).map((c) => <button key={c} class="btn sm" aria-pressed={stroke.cap === c} onClick={() => set({ cap: c })}>{c}</button>)}</div>
       <div class="seg" role="group" aria-label="Line join">{(['miter', 'round', 'bevel'] as const).map((c) => <button key={c} class="btn sm" aria-pressed={stroke.join === c} onClick={() => set({ join: c })}>{c}</button>)}</div>
       <div class="prop"><span class="pname">Dash / gap</span><span />
-        <div class="fields"><NumField label="D" value={stroke.dash} min={0} onChange={(dash) => set({ dash })} /><NumField label="G" value={stroke.gap} min={0} onChange={(gap) => set({ gap })} /></div></div>
+        <div class="fields"><NumField label="D" aria="Dash length" value={stroke.dash} min={0} onChange={(dash) => set({ dash })} /><NumField label="G" aria="Dash gap" value={stroke.gap} min={0} onChange={(gap) => set({ gap })} /></div></div>
     </>
   );
 }

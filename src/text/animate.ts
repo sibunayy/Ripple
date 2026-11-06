@@ -1,5 +1,6 @@
 // Text animators (spec §7.8): range selector over characters / words / lines driving per-unit transforms.
 // Pure helpers; the rasteriser applies the resulting per-glyph transforms.
+import type { Prop } from '../model/layer';
 export type AnimUnit = 'chars' | 'words' | 'lines';
 export type AnimShape = 'square' | 'ramp' | 'triangle' | 'round' | 'smooth';
 export interface TextAnimator { id: string; name: string; unit: AnimUnit; shape: AnimShape; colorOn?: boolean }
@@ -49,3 +50,11 @@ export const TEMPLATES: Template[] = [
   { id: 'typewriter', label: 'Typewriter', unit: 'chars', shape: 'ramp', start: 0, end: 1, props: { opacity: 0 }, secondsPer: 0.06, minSeconds: 0.6 },
   { id: 'wave', label: 'Wave', unit: 'chars', shape: 'triangle', start: 0, end: 30, props: { position: [0, -36] }, secondsPer: 0.08, minSeconds: 1.2 },
 ];
+
+export const animatorProps = (id: string, start: number, end: number, p: Record<string, number | number[]>): Record<string, Prop<any>> => ({
+  [`ta:${id}:start`]: { value: start }, [`ta:${id}:end`]: { value: end }, [`ta:${id}:offset`]: { value: 0 },
+  [`ta:${id}:position`]: { value: p.position ?? [0, 0] }, [`ta:${id}:scale`]: { value: p.scale ?? [100, 100] },
+  [`ta:${id}:rotation`]: { value: p.rotation ?? 0 }, [`ta:${id}:opacity`]: { value: p.opacity ?? 100 },
+  [`ta:${id}:color`]: { value: [1, 0.4, 0.4, 1] },
+});
+
