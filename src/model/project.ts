@@ -1,0 +1,88 @@
+// Document model (spec §5). M0 only carries project settings; layers/comps arrive in M1.
+export type ColorRGBA = [number, number, number, number]; // 0–1, sRGB
+
+export interface ProjectSettings {
+  width: number;
+  height: number;
+  fps: number;
+  duration: number; // frames
+  bg: ColorRGBA;
+  colorSpace: 'srgb' | 'display-p3';
+  linearLight: boolean;
+}
+
+export interface Project {
+  v: 1;
+  id: string;
+  name: string;
+  created: number;
+  modified: number;
+  settings: ProjectSettings;
+}
+
+export const SIZE_PRESETS = [
+  { name: 'HD 1080p', width: 1920, height: 1080 },
+  { name: '4K UHD', width: 3840, height: 2160 },
+  { name: 'Square', width: 1080, height: 1080 },
+  { name: 'Vertical', width: 1080, height: 1920 },
+  { name: 'Lottie', width: 512, height: 512 },
+] as const;
+
+export const FPS_PRESETS = [24, 25, 30, 50, 60] as const;
+
+export const MAX_DIMENSION = 8192;
+export const MAX_FPS = 120;
+
+export const newId = (): string => {
+  const b = crypto.getRandomValues(new Uint8Array(9));
+  return Array.from(b, (x) => x.toString(36).padStart(2, '0')).join('').slice(0, 12);
+};
+
+export function createProject(name = 'Untitled', now = Date.now()): Project {
+  return {
+    v: 1,
+    id: newId(),
+    name,
+    created: now,
+    modified: now,
+    settings: {
+      width: 1920,
+      height: 1080,
+      fps: 30,
+      duration: 300,
+      bg: [0.07, 0.07, 0.09, 1],
+      colorSpace: 'srgb',
+      linearLight: false,
+    },
+  };
+}
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+/** Clamp user-entered settings to supported ranges. */
+export function sanitizeSettings(s: ProjectSettings): ProjectSettings {
+  return {
+    ...s,
+    width: clamp(Math.round(s.width) || 1920, 16, MAX_DIMENSION),
+    height: clamp(Math.round(s.height) || 1080, 16, MAX_DIMENSION),
+    fps: clamp(s.fps || 30, 1, MAX_FPS),
+    duration: clamp(Math.round(s.duration) || 1, 1, 1_000_000),
+  };
+}
+
+export const toHex = (c: ColorRGBA): string =>
+  '#' + c.slice(0, 3).map((x) => Math.round(clamp(x, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
+
+export const fromHex = (hex: string, a = 1): ColorRGBA => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return [0, 0, 0, a];
+  const n = parseInt(m[1]!, 16);
+  return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, a];
+};
+
+export const timecode = (frames: number, fps: number): string => {
+  const f = Math.round(fps);
+  const s = Math.floor(frames / f);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(s / 60))}:${pad(s % 60)}:${pad(Math.floor(frames % f))}`;
+};
