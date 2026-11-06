@@ -191,3 +191,7 @@ input[type='color'] { width: 100%; height: var(--hit); border: 1px solid var(--l
 .crumb { white-space: nowrap; color: var(--accent); }
 .mask { display: grid; gap: 8px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; } .mask.on { border-color: var(--accent); }
 .mask .seg select { flex: 2; }
+
+/* M4.5 export */
+progress { width: 100%; height: 10px; accent-color: var(--accent); }
+.gl-error-inline { color: var(--danger); margin: 0; }
