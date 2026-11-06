@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
-  notice, activeComp, compPath, exitComp, addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
+  restoreVersion, notice, activeComp, compPath, exitComp, addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
   keySel, moveSelectedKeys, pasteKeyframes, playhead, redo, rename, saveState, selection, setSettings, setWorkArea, undo, undoLabel,
 } from './state';
+import { activeJobs } from '../export/queue';
+import { listSnapshots } from '../io/store';
 import { cancelPen, deleteSelectedNode, finishPen, nodeSel, penDraft, setTool, TOOLS, tool } from './tools';
 import { pause, play, playing, seek, step, togglePlay } from './playback';
 import { Viewer } from './Viewer';
@@ -83,7 +85,7 @@ export function Editor() {
         <button class="btn" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')}>Timeline</button>
         <button class="btn" aria-pressed={panels.value.right} onClick={() => toggle('right')}>Panel</button>
         <button class="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
-        <button class="btn primary" onClick={() => setExportOpen(true)}>Export</button>
+        <button class="btn primary" onClick={() => setExportOpen(true)}>Export{activeJobs() ? ` ●${activeJobs()}` : ''}</button>
       </header>
 
       <aside class="panel left"><LayersPanel /></aside>
@@ -120,6 +122,8 @@ export function Editor() {
 
 function SettingsDialog({ onClose }: { onClose: () => void }) {
   const s = current.value!.settings;
+  const [snaps, setSnaps] = useState<{ t: number; size: number }[]>([]);
+  useEffect(() => { void listSnapshots(current.peek()!.id).then(setSnaps).catch(() => undefined); }, []);
   const num = (k: 'width' | 'height' | 'fps' | 'duration') => (e: Event) =>
     setSettings({ [k]: Number((e.target as HTMLInputElement).value) });
   return (
@@ -150,6 +154,15 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
           <input type="color" value={toHex(s.bg)} onInput={(e) => setSettings({ bg: fromHex((e.target as HTMLInputElement).value, s.bg[3]) })} />
         </label>
         <label class="check"><input type="checkbox" checked={s.linearLight} onChange={(e) => setSettings({ linearLight: (e.target as HTMLInputElement).checked })} /> Composite in linear light</label>
+        {snaps.length > 0 && !activeComp.value && (
+          <section class="sec"><h3>Earlier versions</h3>
+            <ul class="jobs">{snaps.map((sn, i) => (
+              <li key={sn.t} class="job"><div class="jtop"><span>{new Date(sn.t).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                <button class="btn sm" onClick={() => { void restoreVersion(i); onClose(); }}>Restore</button></div></li>
+            ))}</ul>
+            <p class="hint">Restoring is undoable.</p>
+          </section>
+        )}
         <div class="row"><button class="btn primary" onClick={onClose}>Done</button></div>
       </div>
     </div>

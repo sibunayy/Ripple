@@ -1,79 +1,83 @@
-import { useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { current, frame, rootProject } from './state';
 import { workRange } from '../model/project';
-import type { ExportKind, ExportResult } from '../export/export';
+import { KIND_INFO, type ExportKind } from '../export/export';
+import { cancel, dismiss, enqueue, jobs, restart } from '../export/queue';
+import { downloadBlob, shareBlob } from '../io/download';
 
-const KIND_LABEL: Record<ExportKind, string> = { mp4: 'MP4 video (H.264)', 'png-seq': 'PNG sequence (.zip)', png: 'Current frame (PNG)' };
+const ORDER: ExportKind[] = ['mp4', 'webm', 'gif', 'png-seq', 'jpeg-seq', 'webp-seq', 'png', 'jpeg', 'webp', 'ripple'];
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
   const [kind, setKind] = useState<ExportKind>('mp4');
   const [scale, setScale] = useState(1);
   const [range, setRange] = useState<'work' | 'all'>('work');
-  const [state, setState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
-  const [prog, setProg] = useState<[number, number]>([0, 1]);
-  const [msg, setMsg] = useState('');
-  const [result, setResult] = useState<ExportResult | null>(null);
-  const abort = useRef<AbortController | null>(null);
+  const [fps, setFps] = useState(0);
+  const [transparent, setTransparent] = useState(false);
   const p = current.value!;
+  const info = KIND_INFO[kind];
   const [a, b] = workRange(p);
-  const frames = kind === 'png' ? 1 : range === 'work' ? b - a : p.settings.duration;
-  const dims = `${Math.max(2, Math.floor((p.settings.width * scale) / 2) * 2)}×${Math.max(2, Math.floor((p.settings.height * scale) / 2) * 2)}`;
+  const outFps = fps || p.settings.fps;
+  const span = range === 'work' ? b - a : p.settings.duration;
+  const frames = info.still || kind === 'ripple' ? 1 : Math.max(1, Math.floor((span * outFps) / p.settings.fps));
+  const dims = `${Math.max(2, Math.round(p.settings.width * scale))}×${Math.max(2, Math.round(p.settings.height * scale))}`;
+  const media = kind !== 'ripple';
 
-  const start = async () => {
-    setState('running'); setMsg(''); setProg([0, frames]);
-    abort.current = new AbortController();
-    try {
-      const { runExport } = await import('../export/export');
-      const r = await runExport(rootProject(), { kind, scale, range, frame: frame(), signal: abort.current.signal, onProgress: (d, t) => setProg([d, t]) });
-      setResult(r); setState('done');
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') { setState('idle'); return; }
-      setMsg((e as Error).message); setState('error');
-    }
-  };
-  const download = () => {
-    if (!result) return;
-    const url = URL.createObjectURL(result.blob), el = document.createElement('a');
-    el.href = url; el.download = result.name; document.body.append(el); el.click(); el.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
-  };
-  const share = async () => {
-    if (!result) return;
-    const file = new File([result.blob], result.name, { type: result.mime });
-    try { if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: result.name }); else download(); }
-    catch (e) { if ((e as Error).name !== 'AbortError') download(); }
-  };
+  const start = () => enqueue(rootProject(), kind, { kind, scale: kind === 'gif' && scale === 1 ? 0.5 : scale, range, frame: frame(), fps: fps || undefined, transparent: transparent && !!info.alpha });
+  const list = jobs.value;
 
   return (
-    <div class="scrim" onClick={() => state !== 'running' && onClose()}>
+    <div class="scrim" onClick={onClose}>
       <div class="dialog" role="dialog" aria-modal="true" aria-label="Export" onClick={(e) => e.stopPropagation()}>
         <h2>Export</h2>
         <label>Format
-          <select value={kind} disabled={state === 'running'} onChange={(e) => setKind((e.target as HTMLSelectElement).value as ExportKind)}>
-            {(Object.keys(KIND_LABEL) as ExportKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+          <select value={kind} onChange={(e) => setKind((e.target as HTMLSelectElement).value as ExportKind)}>
+            {ORDER.map((k) => <option key={k} value={k}>{KIND_INFO[k].label}</option>)}
           </select>
         </label>
-        <div class="two">
-          <label>Resolution
-            <select value={scale} disabled={state === 'running'} onChange={(e) => setScale(Number((e.target as HTMLSelectElement).value))}>
-              <option value={1}>Full</option><option value={0.5}>Half</option><option value={0.25}>Quarter</option>
+        {media && <>
+          <div class="two">
+            <label>Resolution
+              <select value={scale} onChange={(e) => setScale(Number((e.target as HTMLSelectElement).value))}>
+                <option value={1}>Full</option><option value={0.5}>Half</option><option value={0.25}>Quarter</option>
+              </select>
+            </label>
+            <label>Range
+              <select value={range} disabled={!!info.still} onChange={(e) => setRange((e.target as HTMLSelectElement).value as 'work' | 'all')}>
+                <option value="work">Work area</option><option value="all">Whole comp</option>
+              </select>
+            </label>
+          </div>
+          {!info.still && <label>Frame rate
+            <select value={fps} onChange={(e) => setFps(Number((e.target as HTMLSelectElement).value))}>
+              <option value={0}>Project ({p.settings.fps} fps)</option>{[12, 15, 24, 25, 30, 50, 60].map((f) => <option key={f} value={f}>{f} fps</option>)}
             </select>
-          </label>
-          <label>Range
-            <select value={range} disabled={state === 'running' || kind === 'png'} onChange={(e) => setRange((e.target as HTMLSelectElement).value as 'work' | 'all')}>
-              <option value="work">Work area</option><option value="all">Whole comp</option>
-            </select>
-          </label>
-        </div>
-        <p class="hint">{dims} · {frames} frame{frames === 1 ? '' : 's'}{kind !== 'png' ? ` · ${(frames / p.settings.fps).toFixed(1)} s` : ''}</p>
-        {state === 'running' && <progress aria-label="Export progress" max={prog[1]} value={prog[0]} />}
-        {state === 'error' && <p class="gl-error-inline" role="alert">{msg}</p>}
-        {state === 'done' && result && <p role="status">Done: {result.name} · {(result.blob.size / 1e6).toFixed(1)} MB · {(result.ms / 1000).toFixed(1)} s ({((result.frames / p.settings.fps) / (result.ms / 1000)).toFixed(1)}× realtime)</p>}
-        <div class="row">
-          {state === 'running' ? <button class="btn danger" onClick={() => abort.current?.abort()}>Cancel</button>
-            : state === 'done' ? <><button class="btn" onClick={download}>Download</button><button class="btn primary" onClick={() => void share()}>Share…</button></>
-            : <><button class="btn" onClick={onClose}>Close</button><button class="btn primary" onClick={() => void start()}>Export</button></>}
-        </div>
+          </label>}
+          {info.alpha && <label class="check"><input type="checkbox" checked={transparent} onChange={(e) => setTransparent((e.target as HTMLInputElement).checked)} /> Transparent background</label>}
+          <p class="hint">{dims}{kind === 'gif' && scale === 1 ? ' (GIFs default to half size)' : ''} · {frames} frame{frames === 1 ? '' : 's'}{!info.still ? ` · ${(frames / outFps).toFixed(1)} s` : ''}</p>
+        </>}
+        {kind === 'ripple' && <p class="hint">A single file with the project, its media and imported fonts. Import it from the library on any device.</p>}
+        <div class="row"><button class="btn" onClick={onClose}>Close</button><button class="btn primary" onClick={start}>{kind === 'ripple' ? 'Create backup' : 'Add to queue'}</button></div>
+
+        {list.length > 0 && (
+          <section class="sec"><h3>Queue</h3>
+            <ul class="jobs">
+              {list.map((j) => (
+                <li key={j.id} class={`job ${j.status}`}>
+                  <div class="jtop"><strong>{j.name}</strong><span class="jstat">{j.status}</span></div>
+                  {j.status === 'running' && <progress aria-label="Export progress" max={Math.max(1, j.total)} value={j.done} />}
+                  {j.status === 'error' && <p class="gl-error-inline" role="alert">{j.error}</p>}
+                  {j.status === 'done' && j.result && <p class="hint" role="status">{j.result.name} · {(j.result.blob.size / 1e6).toFixed(1)} MB{j.result.frames > 1 ? ` · ${(j.result.frames / p.settings.fps / (j.result.ms / 1000)).toFixed(1)}× realtime` : ''}</p>}
+                  <div class="seg">
+                    {j.status === 'done' && j.result && <><button class="btn sm" onClick={() => downloadBlob(j.result!.blob, j.result!.name)}>Download</button><button class="btn sm primary" onClick={() => void shareBlob(j.result!.blob, j.result!.name, j.result!.mime)}>Share…</button></>}
+                    {(j.status === 'running' || j.status === 'queued') && <button class="btn sm danger" onClick={() => cancel(j.id)}>Cancel</button>}
+                    {(j.status === 'interrupted' || j.status === 'error' || j.status === 'cancelled') && <button class="btn sm" onClick={() => void restart(j.id)}>Restart</button>}
+                    {j.status !== 'running' && <button class="btn sm" aria-label="Remove job" onClick={() => dismiss(j.id)}>✕</button>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   );

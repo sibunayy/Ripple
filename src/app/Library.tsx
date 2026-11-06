@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { signal } from '@preact/signals';
 import { loadThumb } from '../io/thumbs';
-import { duplicateProject, library, newProject, openProject, removeProject } from './state';
+import { backupProject, importBundleFile, notice, duplicateProject, library, newProject, openProject, removeProject } from './state';
 
 function Thumb({ id, modified, label, ratio, onOpen }: { id: string; modified: number; label: string; ratio: string; onOpen: () => void }) {
   const [url, setUrl] = useState('');
@@ -21,14 +22,27 @@ function Thumb({ id, modified, label, ratio, onOpen }: { id: string; modified: n
 
 const ago = (t: number) => new Date(t).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
+const installed = typeof matchMedia !== 'undefined' && (matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true);
+const nudgeHidden = signal((() => { try { return localStorage.getItem('rf-nudge') === '1'; } catch { return false; } })());
+
 export function Library() {
   const items = library.value;
   return (
     <main class="library">
+      {notice.value && <div class="toast" role="status"><span>{notice.value}</span><button class="btn sm" onClick={() => (notice.value = '')}>OK</button></div>}
       <header>
         <h1>RippleFlow</h1>
-        <button class="btn primary" onClick={() => void newProject()}>＋ New project</button>
+        <div class="row">
+          <label class="btn filebtn">Import .ripple…<input type="file" accept=".ripple,application/zip" hidden onChange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void importBundleFile(f); (e.target as HTMLInputElement).value = ''; }} /></label>
+          <button class="btn primary" onClick={() => void newProject()}>＋ New project</button>
+        </div>
       </header>
+      {items.length > 0 && !installed && !nudgeHidden.value && (
+        <div class="banner" role="note">
+          <span>Safari can clear data from websites that aren't installed. Add RippleFlow to your Home Screen, and use <b>Backup</b> to keep copies of important projects.</span>
+          <button class="btn sm" onClick={() => { nudgeHidden.value = true; try { localStorage.setItem('rf-nudge', '1'); } catch { /* ignore */ } }}>Got it</button>
+        </div>
+      )}
       {items.length === 0 ? (
         <p class="empty">No projects yet. Create one to get started.</p>
       ) : (
@@ -43,6 +57,7 @@ export function Library() {
               </div>
               <div class="row">
                 <button class="btn" onClick={() => void duplicateProject(m.id)}>Duplicate</button>
+                <button class="btn" onClick={() => void backupProject(m.id)}>Backup</button>
                 <button class="btn danger" onClick={() => { if (confirm(`Delete “${m.name}”?`)) void removeProject(m.id); }}>Delete</button>
               </div>
             </li>

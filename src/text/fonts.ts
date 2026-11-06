@@ -40,6 +40,14 @@ export async function initFonts() {
   } catch { /* IndexedDB unavailable: bundled fonts still work */ }
 }
 
+/** Register + persist font bytes under a family name (used by bundle import). */
+export async function addFontData(family: string, data: ArrayBuffer): Promise<string> {
+  await register(family, data);
+  await saveFont(family, new Blob([data]));
+  fonts.value = [...fonts.value.filter((x) => x.family !== family), { family, css: `"${family}", sans-serif`, kind: 'imported' }];
+  return `"${family}", sans-serif`;
+}
+
 /** Import a .ttf/.otf/.woff/.woff2 file. Returns the CSS family name. */
 export async function importFont(file: File): Promise<string> {
   const family = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/["\\]/g, '').trim() || 'Imported font';
