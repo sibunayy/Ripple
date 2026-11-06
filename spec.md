@@ -2,7 +2,7 @@
 
 > A powerful, lightweight motion-graphics editor that installs as a PWA on iPad and is tuned for Apple M1 (iPad Air 5 / iPad Pro M1+).
 
-Status: **Draft v0.1** · Owner: @sibunayy · Target: iPadOS 17+ Safari/standalone PWA (iPadOS 26 preferred), desktop Chrome/Safari/Firefox as secondary.
+Status: **Draft v0.1** · Owner: @sibunayy · Target: **iPadOS 26+** Safari/standalone PWA (minimum), desktop Chrome/Safari/Firefox as secondary. Licence: MIT.
 
 ---
 
@@ -34,7 +34,7 @@ Status: **Draft v0.1** · Owner: @sibunayy · Target: iPadOS 17+ Safari/standalo
 | Language | TypeScript (strict) | Safety on a large data model |
 | Build | Vite + esbuild, `vite-plugin-pwa` (Workbox `injectManifest`) | Fast, small output, code-splitting |
 | UI | **Preact + @preact/signals** (~4 KB) + hand-written CSS (custom properties, container queries) | Fine-grained reactivity for timeline/inspector without VDOM churn |
-| Rendering | **WebGL2** baseline; **WebGPU** backend behind the same `Renderer` interface when available (Safari 26+) | WebGL2 is universal on iPadOS 15+; WebGPU later for compute-based blur/glow |
+| Rendering | **WebGPU** is the primary backend on iPadOS 26+ (compute-based blur/glow, fewer passes); **WebGL2** backend kept behind the same `Renderer` interface as the fallback for desktop browsers without WebGPU and as the first implementation (M1) | iPadOS 26 guarantees WebGPU in Safari; WebGL2 gets the renderer working early and covers other browsers |
 | Vector raster | Own GPU path tessellation (earcut + stroker) with `Path2D`/`OffscreenCanvas` fallback for complex strokes | Resolution-independent, avoids 2D-canvas→texture upload per frame when path unchanged |
 | Text | Shaping/measuring with Canvas 2D; glyphs rasterised to an **MSDF atlas** (lazy, cached) | Crisp at any scale, cheap per-character animation |
 | Video decode | **WebCodecs** `VideoDecoder` + `mp4box.js` demux; fallback `HTMLVideoElement` + `requestVideoFrameCallback` | Frame-accurate scrubbing, hardware decode on M1 |
@@ -201,7 +201,7 @@ Notes
 interface Renderer { init(canvas): Promise<void>; render(list: RenderList, target: Target): void;
   readFrame(): VideoFrame; resize(w,h,dpr): void; dispose(): void; caps: Caps }
 ```
-`WebGL2Renderer` ships v1; `WebGPURenderer` added when feature parity tests pass (same golden images ±1 LSB tolerance).
+`WebGL2Renderer` is built first (M1); `WebGPURenderer` lands in M5 and becomes the default on iPadOS 26+ once it passes the same golden images (±1 LSB tolerance). WebGL2 remains the fallback.
 
 ### 6.4 Motion blur & timing
 - Layer-level motion blur: N sub-frame samples (default 8, adaptive up to 32) accumulated in `RGBA16F`, shutter angle 0–720°, phase offset. Only layers with the flag + animated transform are re-rendered per sample.
@@ -483,7 +483,7 @@ Each milestone ends with a tagged release deployed to Pages and a short demo pro
 
 ## 14. Roadmap beyond v1
 
-Expression engine (sandboxed JS subset: `wiggle`, `loopOut`, `linkTo`), 2.5D/3D layers & camera, particles, audio waveform & mux, motion tracking (point/planar via WebGPU), WebGPU renderer as default, multi-pass shaders & compute, variable-width strokes, boolean live-ops, collaborative editing (CRDT over WebRTC), Files-provider integration, Apple Pencil hover/squeeze when Safari exposes them, plugin API for community effects (WGSL/GLSL + JSON manifest).
+Expression engine (sandboxed JS subset: `wiggle`, `loopOut`, `linkTo`), 2.5D/3D layers & camera, particles, audio waveform & mux, motion tracking (point/planar via WebGPU), multi-pass shaders & compute, variable-width strokes, boolean live-ops, collaborative editing (CRDT over WebRTC), Files-provider integration, Apple Pencil hover/squeeze when Safari exposes them, plugin API for community effects (WGSL/GLSL + JSON manifest).
 
 ---
 
@@ -494,7 +494,7 @@ Expression engine (sandboxed JS subset: `wiggle`, `loopOut`, `linkTo`), 2.5D/3D 
 | iPadOS tab memory kills (jetsam) | Lost work, crashes on big video | Hard memory budget, LRU eviction, proxies, autosave on `pagehide`, recovery flow |
 | WebCodecs gaps/bugs on Safari versions | Video import/export failures | Feature-detect, `HTMLVideoElement` fallback, minimum iPadOS check with clear message, test matrix |
 | No File System Access API on iPadOS | Clumsy file handling | OPFS library as primary, Share Sheet for export, `.ripple` import via picker; clear UX around "where are my files" |
-| WebGL2 limits (no compute, texture size 8k–16k, no float linear on some) | Effect quality/perf | Feature detection with fallbacks; downsampled effects; WebGPU path later |
+| WebGL2 limits (no compute, texture size 8k–16k, no float linear on some) | Effect quality/perf on fallback path | WebGPU primary on iPadOS 26+; WebGL2 feature detection and downsampled effects as fallback |
 | Pencil hover/double-tap/squeeze not exposed to web | Reduced pen UX | Don't depend on them; offer on-screen/keyboard alternatives |
 | Scope creep (it is "After Effects") | Never ships | Strict P0/P1/P2 gating; milestone exit criteria; ship M0–M5 as public beta |
 | Lottie feature mismatch across players | Export looks different elsewhere | Target profiles, compat report, round-trip golden tests with lottie-web |
@@ -503,10 +503,13 @@ Expression engine (sandboxed JS subset: `wiggle`, `loopOut`, `linkTo`), 2.5D/3D 
 
 ---
 
-## 16. Open questions
+## 16. Decisions
 
-1. Minimum supported iPadOS (17.4 for stable WebCodecs `VideoEncoder` vs. 16.4 baseline)?
-2. Bundle licensed/open fonts and which? (Inter, Source Serif, JetBrains Mono, + 1 display.)
-3. Should linear-light compositing be the default for new projects (correct glows) or off (AE-familiar look)?
-4. Naming/IP: avoid After Effects trademark in UI strings & presets; own terminology where practical.
-5. Monetisation / licensing for the repo (MIT vs. source-available)?
+Resolved 2026-11-06:
+1. **Minimum OS: iPadOS 26.** WebGPU and stable WebCodecs are guaranteed; no legacy fallbacks for older Safari on iPad.
+2. **Linear-light compositing: off by default** (After Effects-familiar look); per-project toggle.
+3. **Licence: MIT.**
+4. **Bundled fonts:** Inter (sans), Source Serif (serif), JetBrains Mono (mono), plus one open-licence display face (to be chosen; must be OFL/Apache). Lazy-loaded, ≤ 300 KB total.
+
+Still open:
+- Naming/IP: avoid After Effects trademarks in UI strings and presets; use own terminology.
