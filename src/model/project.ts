@@ -1,4 +1,6 @@
-// Document model (spec §5). M0 only carries project settings; layers/comps arrive in M1.
+// Document model (spec §5).
+import type { Layer } from './layer';
+
 export type ColorRGBA = [number, number, number, number]; // 0–1, sRGB
 
 export interface ProjectSettings {
@@ -18,6 +20,8 @@ export interface Project {
   created: number;
   modified: number;
   settings: ProjectSettings;
+  /** Root composition layers, top layer first. (Nested comps arrive with precomps in M4.) */
+  layers: Layer[];
 }
 
 export const SIZE_PRESETS = [
@@ -54,6 +58,7 @@ export function createProject(name = 'Untitled', now = Date.now()): Project {
       colorSpace: 'srgb',
       linearLight: false,
     },
+    layers: [],
   };
 }
 
@@ -86,3 +91,6 @@ export const timecode = (frames: number, fps: number): string => {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(Math.floor(s / 60))}:${pad(s % 60)}:${pad(Math.floor(frames % f))}`;
 };
+
+/** Fill in fields missing from projects saved by older versions. */
+export const migrate = (p: Project): Project => ({ ...p, layers: p.layers ?? [] });

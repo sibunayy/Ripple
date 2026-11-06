@@ -1,41 +1,76 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
-import { closeProject, current, flush, rename, saveState, setSettings } from './state';
+import {
+  canRedo, canUndo, closeProject, current, deleteLayers, duplicateLayers, flush, playhead, redo, rename,
+  saveState, selection, setSettings, undo, undoLabel,
+} from './state';
+import { pause, play, playing, seek, step, togglePlay } from './playback';
+import { Viewer } from './Viewer';
+import { Timeline } from './Timeline';
+import { LayersPanel } from './LayersPanel';
+import { Inspector } from './Inspector';
 import { FPS_PRESETS, SIZE_PRESETS, fromHex, timecode, toHex } from '../model/project';
 
-type Tab = 'layers' | 'inspector' | 'effects' | 'presets';
+type Tab = 'inspector' | 'effects' | 'presets';
 const panels = signal({ left: true, right: true, timeline: true });
 const SAVE_LABEL = { saved: 'Saved', dirty: 'Unsaved…', saving: 'Saving…', error: 'Save failed' } as const;
+const typing = (t: EventTarget | null) => t instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) && (t as HTMLInputElement).type !== 'color';
+
+function useShortcuts() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      const k = e.key.toLowerCase();
+      if (mod && k === 'z') { if (typing(e.target) && (e.target as HTMLInputElement).type !== 'number') return; e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+      if (mod && k === 's') { e.preventDefault(); void flush(); return; }
+      if (typing(e.target)) return;
+      if (mod && k === 'd') { e.preventDefault(); duplicateLayers(selection.peek()); return; }
+      if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); step(e.shiftKey ? -10 : -1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); step(e.shiftKey ? 10 : 1); }
+      else if (e.key === 'Home') { e.preventDefault(); seek(0); }
+      else if (e.key === 'End') { e.preventDefault(); seek(Infinity); }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteLayers(selection.peek()); }
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
+}
 
 export function Editor() {
   const p = current.value!;
   const s = p.settings;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('inspector');
+  useShortcuts();
+  useEffect(() => () => pause(), []);
   const toggle = (k: keyof typeof panels.value) => (panels.value = { ...panels.value, [k]: !panels.value[k] });
 
   return (
     <div class={`editor ${panels.value.left ? '' : 'no-left'} ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
       <header class="topbar">
         <button class="btn" onClick={() => void closeProject()} aria-label="Back to library">‹ Library</button>
-        <input class="title" value={p.name} aria-label="Project name"
-          onChange={(e) => rename((e.target as HTMLInputElement).value)} />
+        <input class="title" value={p.name} aria-label="Project name" onChange={(e) => rename((e.target as HTMLInputElement).value)} />
         <span class={`save ${saveState.value}`} role="status">{SAVE_LABEL[saveState.value]}</span>
         <span class="spacer" />
+        <button class="btn" disabled={!canUndo()} onClick={undo} title={undoLabel()} aria-label="Undo">↶</button>
+        <button class="btn" disabled={!canRedo()} onClick={redo} aria-label="Redo">↷</button>
         <button class="btn" aria-pressed={panels.value.left} onClick={() => toggle('left')}>Layers</button>
         <button class="btn" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')}>Timeline</button>
         <button class="btn" aria-pressed={panels.value.right} onClick={() => toggle('right')}>Panel</button>
-        <button class="btn" onClick={() => setSettingsOpen(true)}>Project settings</button>
-        <button class="btn" onClick={() => void flush()}>Save</button>
+        <button class="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
       </header>
 
-      <aside class="panel left"><h2>Layers</h2><p class="hint">Layers arrive in M1.</p></aside>
+      <aside class="panel left"><LayersPanel /></aside>
 
       <section class="viewer">
-        <div class="stage" style={{ aspectRatio: `${s.width} / ${s.height}`, background: toHex(s.bg) }}
-          role="img" aria-label={`Composition ${s.width} by ${s.height}`} />
+        <Viewer />
         <footer class="transport">
-          <span class="tc">{timecode(0, s.fps)}</span>
+          <button class="btn" onClick={() => seek(0)} aria-label="Go to start">⏮</button>
+          <button class="btn" onClick={() => step(-1)} aria-label="Previous frame">◀︎</button>
+          <button class="btn primary" onClick={() => (playing.value ? pause() : play())} aria-label={playing.value ? 'Pause' : 'Play'}>{playing.value ? '❚❚' : '▶︎'}</button>
+          <button class="btn" onClick={() => step(1)} aria-label="Next frame">▶︎▶︎</button>
+          <span class="tc" aria-label="Current time">{timecode(Math.floor(playhead.value), s.fps)}</span>
           <span class="hint">/ {timecode(s.duration, s.fps)} · {s.width}×{s.height} · {s.fps} fps</span>
         </footer>
       </section>
@@ -46,10 +81,10 @@ export function Editor() {
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
           ))}
         </nav>
-        <p class="hint">The {tab} panel arrives in a later milestone.</p>
+        {tab === 'inspector' ? <Inspector /> : <p class="hint">The {tab} panel arrives in a later milestone.</p>}
       </aside>
 
-      <section class="timeline"><h2>Timeline</h2><p class="hint">Keyframes arrive in M2.</p></section>
+      <section class="timeline"><Timeline /></section>
 
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>

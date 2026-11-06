@@ -2,7 +2,7 @@
 
 A lightweight motion-graphics editor that installs as a PWA on iPad (tuned for Apple M1). See [spec.md](spec.md) for the full design.
 
-**Status:** M0 — installable shell, project library (OPFS + IndexedDB), project settings, autosave.
+**Status:** M1 — document model with undo/redo, WebGL2 renderer, viewer (pinch zoom/pan, select, drag), layers panel, inspector with keyframes, timeline, playback.
 
 ## Develop
 
