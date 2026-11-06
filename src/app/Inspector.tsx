@@ -1,5 +1,5 @@
 import { useRef } from 'preact/hooks';
-import { convertToPath, current, editShape, editText, frame, playhead, selection, setLayerColor, setPath, setProp, toggleStopwatch, valueAt } from './state';
+import { activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
 import { nodeSel } from './tools';
 import { NumField } from '../ui/NumField';
 import { hasKeyAt, isAnimated } from '../anim/interp';
@@ -7,6 +7,9 @@ import { fromHex, toHex, type ColorRGBA } from '../model/project';
 import { propOf, type Layer, type Paint, type PropKey, type StrokeStyle, type Vec2 } from '../model/layer';
 import { layerBox } from '../shape/geometry';
 import { toggleSmooth, isCorner } from '../shape/path';
+import { BLEND_MODES, type BlendMode } from '../render/blend';
+import { maskProp } from '../render/masks';
+import type { MaskMode, MatteMode } from '../model/layer';
 import { fonts, importFont } from '../text/fonts';
 import { deleteSelectedNode } from './tools';
 
@@ -61,6 +64,44 @@ export function Inspector() {
         {num('opacity', 'Opacity', 1, 0, 100)}
         {vec('anchor', 'Anchor')}
       </Section>
+      <Section title="Layer">
+        <label class="prop"><span class="pname">Blend</span><span />
+          <div class="fields one"><select aria-label="Blend mode" value={l.blend ?? 'normal'} onChange={(e) => setBlend(l.id, (e.target as HTMLSelectElement).value as BlendMode)}>
+            {BLEND_MODES.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+          </select></div></label>
+        <label class="prop"><span class="pname">Track matte</span><span />
+          <div class="fields">
+            <select aria-label="Matte layer" value={l.matte?.layer ?? ''} onChange={(e) => setMatte(l.id, (e.target as HTMLSelectElement).value || null, l.matte?.mode)}>
+              <option value="">None</option>
+              {p.layers.filter((o) => o.id !== l.id).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+            <select aria-label="Matte mode" disabled={!l.matte} value={l.matte?.mode ?? 'alpha'} onChange={(e) => setMatte(l.id, l.matte!.layer, (e.target as HTMLSelectElement).value as MatteMode)}>
+              <option value="alpha">Alpha</option><option value="alphaInv">Alpha inverted</option><option value="luma">Luma</option><option value="lumaInv">Luma inverted</option>
+            </select>
+          </div></label>
+        <label class="check"><input type="checkbox" checked={!!l.clip} onChange={(e) => setClip(l.id, (e.target as HTMLInputElement).checked)} /> Clip to layer below</label>
+        {l.type === 'precomp' && l.precomp && <button class="btn sm" onClick={() => enterComp(l.precomp!.comp)}>Open composition</button>}
+      </Section>
+      <Section title="Masks">
+        {(l.masks ?? []).map((m) => (
+          <div key={m.id} class={`mask ${selMask.value === m.id ? 'on' : ''}`}>
+            <div class="seg">
+              <button class="btn sm" aria-pressed={selMask.value === m.id} onClick={() => { selMask.value = selMask.value === m.id ? null : m.id; nodeSel.value = null; }}>{m.name}</button>
+              <select aria-label="Mask mode" value={m.mode} onChange={(e) => editMask(l.id, m.id, { mode: (e.target as HTMLSelectElement).value as MaskMode })}>
+                {(['add', 'subtract', 'intersect', 'lighten', 'darken', 'difference', 'none'] as const).map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+              <button class="btn sm" aria-pressed={m.invert} aria-label="Invert mask" onClick={() => editMask(l.id, m.id, { invert: !m.invert })}>⇄</button>
+              <button class="btn sm danger" aria-label="Delete mask" onClick={() => deleteMask(l.id, m.id)}>✕</button>
+            </div>
+            {selMask.value === m.id && <>
+              {num(maskProp(m.id, 'opacity'), 'Opacity', 1, 0, 100)}{num(maskProp(m.id, 'feather'), 'Feather', 1, 0)}{num(maskProp(m.id, 'expansion'), 'Expansion', 1)}
+              <div class="seg wrap"><button class="btn sm" aria-pressed={!!m.path.keys?.length} onClick={() => togglePathAnim(l.id)}>◷ Animate shape</button></div>
+              <PathTools layer={l} />
+            </>}
+          </div>
+        ))}
+        <div class="seg"><button class="btn sm" onClick={() => addMask(l.id, 'rect')}>＋ Rectangle</button><button class="btn sm" onClick={() => addMask(l.id, 'ellipse')}>＋ Ellipse</button></div>
+      </Section>
       {l.type === 'solid' && (
         <label class="prop color">
           <span class="pname">Colour</span>
@@ -75,7 +116,7 @@ export function Inspector() {
           {num('shape.outer', 'Outer radius', 1, 1)}
           {num('shape.inner', 'Inner radius', 1, 1)}
           {sh.kind !== 'path' && <button class="btn sm" onClick={() => convertToPath(l.id)}>Convert to editable path</button>}
-          {sh.kind === 'path' && sh.path && <PathTools layer={l} />}
+          {sh.kind === 'path' && sh.path && !selMask.value && <><div class="seg wrap"><button class="btn sm" aria-pressed={!!sh.path.keys?.length} onClick={() => togglePathAnim(l.id)}>◷ Animate path</button></div><PathTools layer={l} /></>}
         </Section>
       )}
       {sh && (
@@ -130,7 +171,9 @@ export function Inspector() {
 }
 
 function PathTools({ layer: l }: { layer: Layer }) {
-  const path = l.shape!.path!;
+  const e = editablePath(l, frame());
+  if (!e) return null;
+  const path = e.path;
   const n = nodeSel.value;
   const node = n !== null ? path.nodes[n] : undefined;
   return (

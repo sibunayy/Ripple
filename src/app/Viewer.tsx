@@ -1,15 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { effect } from '@preact/signals';
-import { addShape, addText, current, frame, playhead, selection, setPath, setProp, setTransform, editText } from './state';
+import { effect, signal } from '@preact/signals';
+import { addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText } from './state';
 import { editingText, finishPen, nodeSel, penDraft, setTool, tool, TOOLS, type Tool } from './tools';
 import { distToPoly, flatten, insertNode, moveHandle, moveNode, nearestOnPath, node as mkNode } from '../shape/path';
 import { layoutText, fontString, textStyle } from '../text/metrics';
-import { shapePath } from '../shape/geometry';
+import { layerBox } from '../shape/geometry';
 import { css } from '../render/raster';
 import { fontRev } from '../text/fonts';
 import { corners, evaluate, hitTest } from '../eval/evaluate';
 import { evalProp, isAnimated } from '../anim/interp';
-import { apply, invert } from '../eval/affine';
+import { apply, invert, type Mat } from '../eval/affine';
 import { GLRenderer } from '../render/gl';
 import type { BezPath, Layer, Prop, Vec2 } from '../model/layer';
 
@@ -58,7 +58,7 @@ export function Viewer() {
       r.resize(Math.round(width * k), Math.round(height * k));
       // Render in comp space; scale to the buffer via the resolution uniform.
       const t = playhead.peek();
-      r.render(evaluate(p.layers, t), { width, height, bg, t });
+      r.render(p.layers, { width, height, bg, t, comps: p.comps, fps: p.settings.fps });
     };
     const schedule = () => { if (!queued) queued = requestAnimationFrame(draw); };
     r.onRestore = schedule;
@@ -70,12 +70,14 @@ export function Viewer() {
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<{ dist: number; mx: number; my: number } | null>(null);
   type Drag =
-    | { kind: 'move'; id: string; start: Vec2; pos: Vec2; lin: [number, number, number, number] }
+    | { kind: 'move'; id: string; start: Vec2; pos: Vec2; lin: [number, number, number, number]; box: [number, number, number, number]; targets: { xs: number[]; ys: number[] } }
     | { kind: 'pan'; x: number; y: number; vx: number; vy: number }
     | { kind: 'create'; tool: Tool; id: string | null; start: Vec2; sx: number; sy: number; moved: boolean }
     | { kind: 'node'; id: string; idx: number }
     | { kind: 'handle'; id: string; idx: number; which: 'i' | 'o' }
-    | { kind: 'penhandle'; idx: number };
+    | { kind: 'penhandle'; idx: number }
+    | { kind: 'scale'; id: string; inv: Mat; a: Vec2; c0: Vec2; lp0: Vec2; s0: Vec2; uniform: boolean }
+    | { kind: 'rotate'; id: string; c: Vec2; a0: number; r0: number };
   const drag = useRef<Drag | null>(null);
   const lastTap = useRef({ t: 0, x: 0, y: 0 });
 
@@ -142,10 +144,31 @@ export function Viewer() {
     const resolved = evaluate(p.layers, time);
     const zoom = viewRef.current.zoom;
 
-    // node / handle editing on the selected path layer
     const selId = selection.peek().length === 1 ? selection.peek()[0] : undefined;
     const sel = selId ? resolved.find((r) => r.layer.id === selId) : undefined;
-    const path = sel?.layer.shape?.kind === 'path' ? sel.layer.shape.path : undefined;
+    // transform handles (scale at the corners, rotate above the top edge)
+    if (sel && !(sel.layer.shape?.kind === 'path' && nodeSel.peek() !== null)) {
+      const cs = corners(sel, time), tol = 16 / zoom;
+      const anchor = evalProp(sel.layer.transform.anchor, time) as Vec2, inv = invert(sel.world);
+      const top: Vec2 = [(cs[0]![0] + cs[1]![0]) / 2, (cs[0]![1] + cs[1]![1]) / 2];
+      const out = rotHandle(cs, zoom);
+      if (inv && Math.hypot(out[0] - cx, out[1] - cy) < tol) {
+        const aw = apply(sel.world, anchor[0], anchor[1]);
+        drag.current = { kind: 'rotate', id: sel.layer.id, c: aw, a0: Math.atan2(cy - aw[1], cx - aw[0]), r0: evalProp(sel.layer.transform.rotation, time) as number };
+        return;
+      }
+      void top;
+      const bx = layerBoxOf(sel, time);
+      const locals: Vec2[] = [[bx[0], bx[1]], [bx[2], bx[1]], [bx[2], bx[3]], [bx[0], bx[3]]];
+      for (let i = 0; i < 4; i++) {
+        if (inv && Math.hypot(cs[i]![0] - cx, cs[i]![1] - cy) < tol) {
+          drag.current = { kind: 'scale', id: sel.layer.id, inv, a: anchor, c0: locals[i]!, lp0: apply(inv, cx, cy), s0: evalProp(sel.layer.transform.scale, time) as Vec2, uniform: e.shiftKey };
+          return;
+        }
+      }
+    }
+    // node / handle editing on the selected path layer
+    const path = sel ? editablePath(sel.layer, time)?.path : undefined;
     if (sel && path) {
       const tol = 18 / zoom;
       const ns = nodeSel.peek();
@@ -178,7 +201,14 @@ export function Viewer() {
     selection.value = [id];
     const parentW = r.layer.parent ? resolved.find((x) => x.layer.id === r.layer.parent)?.world : undefined;
     const inv = parentW ? invert(parentW) : [1, 0, 0, 1, 0, 0];
-    drag.current = { kind: 'move', id, start: [cx, cy], pos: evalProp(r.layer.transform.position, frame()) as Vec2, lin: inv ? [inv[0]!, inv[1]!, inv[2]!, inv[3]!] : [1, 0, 0, 1] };
+    const sx: number[] = [0, s.width / 2, s.width], sy: number[] = [0, s.height / 2, s.height];
+    for (const o of resolved) {
+      if (o.layer.id === id || !o.active) continue;
+      const oc = corners(o, time), xs = oc.map((q) => q[0]), ys = oc.map((q) => q[1]);
+      sx.push(Math.min(...xs), Math.max(...xs), (Math.min(...xs) + Math.max(...xs)) / 2); sy.push(Math.min(...ys), Math.max(...ys), (Math.min(...ys) + Math.max(...ys)) / 2);
+    }
+    const mc = corners(r, time), mxs = mc.map((q) => q[0]), mys = mc.map((q) => q[1]);
+    drag.current = { kind: 'move', id, targets: { xs: sx, ys: sy }, box: [Math.min(...mxs), Math.min(...mys), Math.max(...mxs), Math.max(...mys)], start: [cx, cy], pos: evalProp(r.layer.transform.position, frame()) as Vec2, lin: inv ? [inv[0]!, inv[1]!, inv[2]!, inv[3]!] : [1, 0, 0, 1] };
   };
 
   const onMove = (e: PointerEvent) => {
@@ -199,8 +229,26 @@ export function Viewer() {
     if (d.kind === 'pan') { setView((v) => ({ ...v, x: d.vx + e.clientX - d.x, y: d.vy + e.clientY - d.y, fit: false })); return; }
     const [cx, cy] = toComp(e.clientX, e.clientY);
     if (d.kind === 'move') {
-      const dx = cx - d.start[0], dy = cy - d.start[1];
+      let dx = cx - d.start[0], dy = cy - d.start[1];
+      if (!e.altKey) { // snap box edges/centre to the comp and other layers
+        const th = 6 / viewRef.current.zoom, g: { x?: number; y?: number } = {};
+        const sn = (vals: number[], targets: number[]) => { let best: number | null = null; for (const v of vals) for (const t of targets) { const dd = t - v; if (Math.abs(dd) < th && (best === null || Math.abs(dd) < Math.abs(best))) best = dd; } return best; };
+        const bx = sn([d.box[0] + dx, (d.box[0] + d.box[2]) / 2 + dx, d.box[2] + dx], d.targets.xs), by = sn([d.box[1] + dy, (d.box[1] + d.box[3]) / 2 + dy, d.box[3] + dy], d.targets.ys);
+        if (bx !== null) { dx += bx; g.x = [d.box[0] + dx, (d.box[0] + d.box[2]) / 2 + dx, d.box[2] + dx].find((v) => d.targets.xs.some((t) => Math.abs(t - v) < 0.01)); }
+        if (by !== null) { dy += by; g.y = [d.box[1] + dy, (d.box[1] + d.box[3]) / 2 + dy, d.box[3] + dy].find((v) => d.targets.ys.some((t) => Math.abs(t - v) < 0.01)); }
+        guides.value = g;
+      } else guides.value = {};
       setTransform(d.id, 'position', [d.pos[0] + d.lin[0] * dx + d.lin[2] * dy, d.pos[1] + d.lin[1] * dx + d.lin[3] * dy], `move:${d.id}`);
+    } else if (d.kind === 'scale') {
+      const lp = apply(d.inv, cx, cy);
+      const f = (n: number, c: number, a: number) => (Math.abs(c - a) < 1e-3 ? 1 : Math.max(-50, Math.min(50, (n - a) / (c - a))));
+      let rx = f(lp[0], d.c0[0], d.a[0]), ry = f(lp[1], d.c0[1], d.a[1]);
+      if (d.uniform || (Math.abs(d.c0[0] - d.a[0]) < 1e-3 || Math.abs(d.c0[1] - d.a[1]) < 1e-3)) { const u = Math.abs(rx) > Math.abs(ry) ? rx : ry; rx = ry = u; }
+      setProp(d.id, 'scale', [d.s0[0] * rx, d.s0[1] * ry], `scale:${d.id}`);
+    } else if (d.kind === 'rotate') {
+      let a = Math.atan2(cy - d.c[1], cx - d.c[0]) - d.a0, deg = d.r0 + (a * 180) / Math.PI;
+      if (e.shiftKey) deg = Math.round(deg / 15) * 15;
+      setProp(d.id, 'rotation', deg, `rotate:${d.id}`);
     } else if (d.kind === 'penhandle') {
       const dr = penDraft.peek(); if (!dr) return;
       const n = dr.nodes[d.idx]!, o: Vec2 = [cx - n.p[0], cy - n.p[1]];
@@ -222,7 +270,7 @@ export function Viewer() {
       }
     } else if (d.kind === 'node' || d.kind === 'handle') {
       const pl = current.peek()!.layers.find((l) => l.id === d.id);
-      const path = pl?.shape?.path; if (!pl || !path) return;
+      const path = pl && editablePath(pl, playhead.peek())?.path; if (!pl || !path) return;
       const w = evaluate(current.peek()!.layers, playhead.peek()).find((r) => r.layer.id === d.id)!.world;
       const lp = toLayer(w, [cx, cy]);
       if (d.kind === 'node') setPath(d.id, moveNode(path, d.idx, lp), 'node-move');
@@ -235,6 +283,7 @@ export function Viewer() {
 
   const onUp = (e: PointerEvent) => {
     pointers.current.delete(e.pointerId);
+    guides.value = {};
     if (pointers.current.size < 2) gesture.current = null;
     if (pointers.current.size === 0) {
       const d = drag.current;
@@ -298,6 +347,7 @@ function Overlay({ zoom }: { zoom: number }) {
           <g key={r.layer.id} stroke-width={1.5 * px}>
             <polygon points={pts.map((q) => q.join(',')).join(' ')} fill="none" stroke="var(--accent)" />
             {pts.map((q, i) => <circle key={i} cx={q[0]} cy={q[1]} r={4 * px} fill="var(--surface)" stroke="var(--accent)" />)}
+            {sel.length === 1 && tool.value === 'select' && <RotHandle pts={pts} px={px} />}
             <MotionPath layer={r.layer} px={px} />
             <Nodes r={r} px={px} />
             <path d={`M${a[0] - 8 * px} ${a[1]}H${a[0] + 8 * px}M${a[0]} ${a[1] - 8 * px}V${a[1] + 8 * px}`} stroke="var(--accent)" />
@@ -305,13 +355,15 @@ function Overlay({ zoom }: { zoom: number }) {
         );
       })}
       <PenDraft px={px} />
+      {guides.value.x !== undefined && <line x1={guides.value.x} x2={guides.value.x} y1={0} y2={p.settings.height} stroke="var(--danger)" stroke-width={px} />}
+      {guides.value.y !== undefined && <line y1={guides.value.y} y2={guides.value.y} x1={0} x2={p.settings.width} stroke="var(--danger)" stroke-width={px} />}
     </svg>
   );
 }
 
 /** Editable bezier nodes + handles of a selected path layer. */
 function Nodes({ r, px }: { r: ReturnType<typeof evaluate>[number]; px: number }) {
-  const path = r.layer.shape?.kind === 'path' && r.layer.type === 'shape' ? r.layer.shape.path : undefined;
+  const path = editablePath(r.layer, playhead.value)?.path;
   if (!path || tool.value !== 'select') return null;
   const sel = nodeSel.value;
   const P = (v: Vec2) => apply(r.world, v[0], v[1]);
@@ -407,4 +459,17 @@ function MotionPath({ layer, px }: { layer: Layer; px: number }) {
       {keys.map((k) => <circle key={k.t} cx={k.v[0]} cy={k.v[1]} r={3.5 * px} fill="var(--accent)" stroke="none" />)}
     </g>
   );
+}
+
+const guides = signal<{ x?: number; y?: number }>({});
+const layerBoxOf = (r: ReturnType<typeof evaluate>[number], t: number) => layerBox(r.layer, t);
+/** Rotation handle: 28 screen px beyond the middle of the top edge. */
+function rotHandle(cs: Vec2[], zoom: number): Vec2 {
+  const mx = (cs[0]![0] + cs[1]![0]) / 2, my = (cs[0]![1] + cs[1]![1]) / 2, cx = (cs[0]![0] + cs[2]![0]) / 2, cy = (cs[0]![1] + cs[2]![1]) / 2;
+  const dx = mx - cx, dy = my - cy, l = Math.hypot(dx, dy) || 1;
+  return [mx + (dx / l) * (28 / zoom), my + (dy / l) * (28 / zoom)];
+}
+function RotHandle({ pts, px }: { pts: Vec2[]; px: number }) {
+  const h = rotHandle(pts, 1 / px), mx = (pts[0]![0] + pts[1]![0]) / 2, my = (pts[0]![1] + pts[1]![1]) / 2;
+  return <g><line x1={mx} y1={my} x2={h[0]} y2={h[1]} stroke="var(--accent)" /><circle cx={h[0]} cy={h[1]} r={6 * px} fill="var(--accent)" stroke="none" /></g>;
 }

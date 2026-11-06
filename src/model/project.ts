@@ -15,8 +15,11 @@ export interface ProjectSettings {
 
 export interface Marker { id: string; t: number; name: string }
 
+/** A nested composition (precomp target). The root comp is `Project.layers` + `Project.settings`. */
+export interface Comp { id: string; name: string; width: number; height: number; fps: number; duration: number; layers: Layer[] }
+
 export interface Project {
-  v: 1;
+  v: 2;
   id: string;
   name: string;
   created: number;
@@ -27,6 +30,8 @@ export interface Project {
   markers: Marker[];
   /** Preview/export range [in, out) in frames; null = whole duration. */
   workArea: [number, number] | null;
+  /** Nested comps by id (precomps). */
+  comps: Record<string, Comp>;
 }
 
 export const SIZE_PRESETS = [
@@ -49,7 +54,7 @@ export const newId = (): string => {
 
 export function createProject(name = 'Untitled', now = Date.now()): Project {
   return {
-    v: 1,
+    v: 2,
     id: newId(),
     name,
     created: now,
@@ -66,6 +71,7 @@ export function createProject(name = 'Untitled', now = Date.now()): Project {
     layers: [],
     markers: [],
     workArea: null,
+    comps: {},
   };
 }
 
@@ -100,7 +106,7 @@ export const timecode = (frames: number, fps: number): string => {
 };
 
 /** Fill in fields missing from projects saved by older versions. */
-export const migrate = (p: Project): Project => ({ ...p, layers: p.layers ?? [], markers: p.markers ?? [], workArea: p.workArea ?? null });
+export const migrate = (p: Project): Project => ({ ...p, v: 2, layers: p.layers ?? [], markers: p.markers ?? [], workArea: p.workArea ?? null, comps: p.comps ?? {} });
 
 /** Effective work range [in, out), clamped to the current duration. */
 export function workRange(p: Pick<Project, 'workArea' | 'settings'>): [number, number] {

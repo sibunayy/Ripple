@@ -253,3 +253,42 @@ export function toSvgD(path: BezPath): string {
   }
   return d + (path.closed ? 'Z' : '');
 }
+
+// ---- animated paths (mask / shape morphing) --------------------------------------------------------------
+
+const lerp2 = (a: Vec2, b: Vec2, k: number): Vec2 => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+
+/** Resolve a path at time t: linear interpolation between neighbouring keys (holds outside the range). */
+export function evalPath(path: BezPath, t: number): BezPath {
+  const ks = path.keys;
+  if (!ks?.length) return path;
+  const first = ks[0]!, last = ks[ks.length - 1]!;
+  let nodes: PathNode[];
+  if (t <= first.t) nodes = first.nodes;
+  else if (t >= last.t) nodes = last.nodes;
+  else {
+    let i = 0;
+    while (i < ks.length - 2 && t >= ks[i + 1]!.t) i++;
+    const a = ks[i]!, b = ks[i + 1]!, k = (t - a.t) / (b.t - a.t);
+    nodes = a.nodes.map((n, j) => { const m = b.nodes[j] ?? n; return { p: lerp2(n.p, m.p, k), i: lerp2(n.i, m.i, k), o: lerp2(n.o, m.o, k) }; });
+  }
+  return { nodes, closed: path.closed };
+}
+
+/**
+ * Store an edited path: static paths are replaced; animated paths get/replace the key at t.
+ * A change in node count (insert/delete) cannot be interpolated, so it collapses to a single key.
+ */
+export function writePath(prev: BezPath, next: BezPath, t: number): BezPath {
+  if (!prev.keys?.length) return { nodes: next.nodes, closed: next.closed };
+  const cur = evalPath(prev, t);
+  if (cur.nodes.length !== next.nodes.length) return { nodes: next.nodes, closed: next.closed, keys: [{ t, nodes: next.nodes }] };
+  const keys = prev.keys.filter((k) => k.t !== t).concat({ t, nodes: next.nodes }).sort((a, b) => a.t - b.t);
+  return { nodes: next.nodes, closed: next.closed, keys };
+}
+
+/** Toggle path animation: static → one key at t; animated → static at its value at t. */
+export function togglePathAnimated(path: BezPath, t: number): BezPath {
+  if (path.keys?.length) { const c = evalPath(path, t); return { nodes: c.nodes, closed: c.closed }; }
+  return { ...path, keys: [{ t, nodes: path.nodes }] };
+}

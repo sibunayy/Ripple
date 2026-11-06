@@ -1,5 +1,6 @@
 // Layer model (spec §5). M1: solid + null layers with animatable 2D transforms.
 import { newId, type ColorRGBA, type ProjectSettings } from './project';
+import type { BlendMode } from '../render/blend';
 
 export type Vec2 = [number, number];
 /** Easing of the segment AFTER a keyframe: linear, hold, cubic-bezier [x1, y1, x2, y2] (CSS-style) or a function curve. */
@@ -21,7 +22,16 @@ export type PropKey = string;
 
 /** Bezier node: position plus in/out handles RELATIVE to the node. Zero handles = corner. */
 export interface PathNode { p: Vec2; i: Vec2; o: Vec2 }
-export interface BezPath { nodes: PathNode[]; closed: boolean }
+/** `keys` animates node positions/handles (same node count in every key); absent = static. */
+export interface PathKey { t: number; nodes: PathNode[] }
+export interface BezPath { nodes: PathNode[]; closed: boolean; keys?: PathKey[] }
+
+export type MaskMode = 'none' | 'add' | 'subtract' | 'intersect' | 'lighten' | 'darken' | 'difference';
+/** Mask path lives in layer space. Opacity/feather/expansion are animatable props `mask:<id>:opacity|feather|expansion`. */
+export interface Mask { id: string; name: string; mode: MaskMode; invert: boolean; path: BezPath }
+export type MatteMode = 'alpha' | 'alphaInv' | 'luma' | 'lumaInv';
+export interface Matte { layer: string; mode: MatteMode }
+export interface PrecompRef { comp: string; offset: number }
 
 export interface GradStop { at: number; c: ColorRGBA }
 /** Fill/stroke paint. Solid colour is the animatable prop 'fill.color' / 'stroke.color'; gradients are static in M3. */
@@ -48,7 +58,7 @@ export interface TextContent {
 export interface Layer {
   id: string;
   name: string;
-  type: 'solid' | 'null' | 'shape' | 'text';
+  type: 'solid' | 'null' | 'shape' | 'text' | 'precomp' | 'adjustment';
   parent?: string;
   in: number; // frames, inclusive
   out: number; // frames, exclusive
@@ -60,6 +70,13 @@ export interface Layer {
   props?: Record<string, Prop<any>>;
   shape?: ShapeContent;
   text?: TextContent;
+  blend?: BlendMode;
+  masks?: Mask[];
+  matte?: Matte;
+  /** Use the layer directly below as an alpha matte (without hiding it). */
+  clip?: boolean;
+  effects?: unknown[];
+  precomp?: PrecompRef;
 }
 
 export const DEFAULT_EASE: Ease = [0.42, 0, 0.58, 1];
@@ -70,10 +87,12 @@ const PALETTE: ColorRGBA[] = [
 ];
 
 export function createLayer(type: Layer['type'], s: ProjectSettings, index: number, name?: string): Layer {
-  const size: Vec2 = type === 'solid' ? [s.width, s.height] : [100, 100];
+  const full = type === 'solid' || type === 'adjustment' || type === 'precomp';
+  const size: Vec2 = full ? [s.width, s.height] : [100, 100];
+  const label = { solid: 'Solid', null: 'Null', adjustment: 'Adjustment', precomp: 'Precomp', shape: 'Shape', text: 'Text' }[type];
   return {
     id: newId(),
-    name: name ?? (type === 'solid' ? `Solid ${index + 1}` : `Null ${index + 1}`),
+    name: name ?? `${label} ${index + 1}`,
     type,
     in: 0,
     out: s.duration,

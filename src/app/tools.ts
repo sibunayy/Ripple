@@ -1,7 +1,7 @@
 // Tool state for the viewer (spec §9): select, hand, shape primitives, pen, text.
 import { signal } from '@preact/signals';
 import type { BezPath } from '../model/layer';
-import { addShape, current, selection, setPath } from './state';
+import { addShape, current, editablePath, selection, setPath } from './state';
 import { removeNode } from '../shape/path';
 
 export type Tool = 'select' | 'hand' | 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'pen' | 'text';
@@ -43,8 +43,9 @@ export const cancelPen = () => { penDraft.value = null; };
 export function deleteSelectedNode(): boolean {
   const n = nodeSel.peek(), id = selection.peek()[0];
   const l = current.peek()?.layers.find((x) => x.id === id);
-  if (n === null || !l?.shape?.path) return false;
-  setPath(l.id, removeNode(l.shape.path, n), 'node-del');
+  const e = l && editablePath(l);
+  if (n === null || !l || !e) return false;
+  setPath(l.id, removeNode(e.path, n), 'node-del');
   nodeSel.value = null;
   return true;
 }

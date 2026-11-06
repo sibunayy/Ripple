@@ -135,3 +135,48 @@ describe('shape layers', () => {
     expect((propOf(moved.layers[0]!, 'fill.color') as { keys: { t: number }[] }).keys.map((k) => k.t)).toEqual([0, 15]);
   });
 });
+
+import { evalPath, togglePathAnimated, writePath } from '../src/shape/path';
+import { BLEND_MODES, blendRGB, compositePx } from '../src/render/blend';
+import { migrate } from '../src/model/project';
+
+describe('animated paths', () => {
+  const a: BezPath = { closed: true, nodes: [node(0, 0), node(10, 0), node(10, 10)] };
+  it('interpolates between keys and holds outside', () => {
+    const b = { ...a, nodes: a.nodes.map((n) => ({ ...n, p: [n.p[0] * 2, n.p[1] * 2] as [number, number] })) };
+    const p = { ...a, keys: [{ t: 0, nodes: a.nodes }, { t: 10, nodes: b.nodes }] };
+    expect(evalPath(p, 5).nodes[1]!.p).toEqual([15, 0]);
+    expect(evalPath(p, -3).nodes[2]!.p).toEqual([10, 10]);
+    expect(evalPath(p, 99).nodes[2]!.p).toEqual([20, 20]);
+  });
+  it('writePath keys animated paths and replaces static ones; node-count change collapses', () => {
+    const anim = togglePathAnimated(a, 0);
+    expect(anim.keys!.length).toBe(1);
+    const edited = { ...a, nodes: a.nodes.map((n, i) => (i === 1 ? { ...n, p: [50, 0] as [number, number] } : n)) };
+    const w = writePath(anim, edited, 10);
+    expect(w.keys!.map((k) => k.t)).toEqual([0, 10]);
+    expect(writePath(a, edited, 10).keys).toBeUndefined();
+    const collapsed = writePath(w, { ...a, nodes: a.nodes.slice(0, 2) }, 5);
+    expect(collapsed.keys!.length).toBe(1);
+    expect(togglePathAnimated(w, 10).keys).toBeUndefined();
+  });
+});
+
+describe('blend reference', () => {
+  it('has 27 modes with textbook values', () => {
+    expect(BLEND_MODES.length).toBe(27);
+    expect(blendRGB('multiply', [0.5, 0.5, 0.5], [0.5, 1, 0])).toEqual([0.25, 0.5, 0]);
+    expect(blendRGB('screen', [0.5, 0, 1], [0.5, 0, 0])).toEqual([0.75, 0, 1]);
+    expect(blendRGB('difference', [1, 0.2, 0], [0.5, 0.5, 0])).toEqual([0.5, 0.3, 0].map((v) => expect.closeTo(v, 6)));
+  });
+  it('normal opaque source replaces the backdrop; transparent source leaves it', () => {
+    expect(compositePx('normal', [1, 0, 0, 1], [0, 0, 1, 1])).toEqual([1, 0, 0, 1]);
+    expect(compositePx('multiply', [0, 0, 0, 0], [0.2, 0.4, 0.6, 1])).toEqual([0.2, 0.4, 0.6, 1]);
+  });
+  it('migrate adds comps and bumps to v2', () => {
+    const old = { ...createProject(), v: 1 } as never as Record<string, unknown>;
+    delete old.comps;
+    const m = migrate(old as never);
+    expect(m.v).toBe(2); expect(m.comps).toEqual({});
+  });
+});

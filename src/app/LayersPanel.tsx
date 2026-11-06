@@ -1,5 +1,5 @@
 import { setTool } from './tools';
-import { addLayer, current, deleteLayers, duplicateLayers, moveLayer, renameLayer, selection, setParent, toggleVisible } from './state';
+import { addAdjustment, addComp, precompose, addLayer, current, deleteLayers, duplicateLayers, moveLayer, renameLayer, selection, setParent, toggleVisible } from './state';
 
 export function LayersPanel() {
   const p = current.value!;
@@ -13,6 +13,8 @@ export function LayersPanel() {
         <button class="btn sm" onClick={() => addLayer('null')} aria-label="Add null layer">＋ Null</button>
         <button class="btn sm" onClick={() => setTool('rect')} aria-label="Draw a shape">＋ Shape</button>
         <button class="btn sm" onClick={() => setTool('text')} aria-label="Add text">＋ Text</button>
+        <button class="btn sm" onClick={addAdjustment} aria-label="Add adjustment layer">＋ Adjust</button>
+        <button class="btn sm" onClick={addComp} aria-label="Add composition">＋ Comp</button>
       </div>
       {p.layers.length === 0 && <p class="hint">Add a solid to get started.</p>}
       <ul class="layers">
@@ -23,7 +25,7 @@ export function LayersPanel() {
               <div class="row1" onClick={(e) => { selection.value = e.shiftKey ? (on ? sel.filter((x) => x !== l.id) : [...sel, l.id]) : [l.id]; }}>
                 <button class={`eye ${l.visible ? '' : 'off'}`} aria-label={l.visible ? 'Hide layer' : 'Show layer'} aria-pressed={l.visible}
                   onClick={(e) => { e.stopPropagation(); toggleVisible(l.id); }}>{l.visible ? '●' : '○'}</button>
-                <i class="chip" title={l.type} style={{ background: l.type === 'solid' || l.type === 'shape' ? `rgb(${l.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'transparent' }}>{l.type === 'text' ? 'T' : ''}</i>
+                <i class="chip" title={l.type} style={{ background: l.type === 'solid' || l.type === 'shape' || l.type === 'precomp' ? `rgb(${l.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'transparent' }}>{({ text: 'T', adjustment: '◐', precomp: '▣' } as Record<string, string>)[l.type] ?? ''}</i>
                 <input class="name" value={l.name} aria-label="Layer name" onClick={(e) => e.stopPropagation()}
                   onChange={(e) => renameLayer(l.id, (e.target as HTMLInputElement).value)} />
               </div>
@@ -36,6 +38,7 @@ export function LayersPanel() {
                   <button class="btn sm" disabled={i === 0} onClick={() => moveLayer(l.id, -1)} aria-label="Move layer up">↑</button>
                   <button class="btn sm" disabled={i === p.layers.length - 1} onClick={() => moveLayer(l.id, 1)} aria-label="Move layer down">↓</button>
                   <button class="btn sm" onClick={() => duplicateLayers([l.id])} aria-label="Duplicate layer">⧉</button>
+                  <button class="btn sm" onClick={() => precompose(sel)} aria-label="Pre-compose selected layers">▣</button>
                   <button class="btn sm danger" onClick={() => deleteLayers([l.id])} aria-label="Delete layer">✕</button>
                 </div>
               )}
