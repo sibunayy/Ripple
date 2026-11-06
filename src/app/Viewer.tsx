@@ -58,7 +58,7 @@ export function Viewer() {
       r.resize(Math.round(width * k), Math.round(height * k));
       // Render in comp space; scale to the buffer via the resolution uniform.
       const t = playhead.peek();
-      r.render(p.layers, { width, height, bg, t, comps: p.comps, fps: p.settings.fps });
+      r.render(p.layers, { width, height, bg, t, comps: p.comps, fps: p.settings.fps, linear: p.settings.linearLight });
     };
     const schedule = () => { if (!queued) queued = requestAnimationFrame(draw); };
     r.onRestore = schedule;

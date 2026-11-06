@@ -11,6 +11,8 @@ import { Timeline } from './Timeline';
 import { LayersPanel } from './LayersPanel';
 import { Inspector } from './Inspector';
 import { ExportDialog } from './ExportDialog';
+import { EffectsPanel } from './EffectsPanel';
+import { PresetsPanel } from './PresetsPanel';
 import { FPS_PRESETS, SIZE_PRESETS, fromHex, timecode, toHex } from '../model/project';
 
 type Tab = 'inspector' | 'effects' | 'presets';
@@ -103,7 +105,7 @@ export function Editor() {
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
           ))}
         </nav>
-        {tab === 'inspector' ? <Inspector /> : <p class="hint">The {tab} panel arrives in a later milestone.</p>}
+        {tab === 'inspector' ? <Inspector /> : tab === 'effects' ? <EffectsPanel /> : <PresetsPanel />}
       </aside>
 
       <section class="timeline"><Timeline /></section>

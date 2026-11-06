@@ -12,10 +12,16 @@ window.T = {
       ...(o.extra ?? {}),
     };
   },
-  draw(layers, { w = 64, h = 64, bg = [0, 0, 0, 1], t = 0, comps = {} } = {}, pts = []) {
+  /** layer extras for effects: fx([['invert'], ['gaussianBlur', { radius: 8 }]]) */
+  fx(list, data) {
+    const effects = [], props = {};
+    list.forEach(([type, vals = {}], i) => { const id = 'e' + i; effects.push({ id, type, enabled: true, data: data?.[i] }); for (const [k, v] of Object.entries(vals)) props['fx:' + id + ':' + k] = { value: v }; });
+    return { effects, props };
+  },
+  draw(layers, { w = 64, h = 64, bg = [0, 0, 0, 1], t = 0, comps = {}, linear = false } = {}, pts = []) {
     const r = window.__ripple.renderer;
     r.resize(w, h);
-    r.render(layers, { width: w, height: h, bg, t, comps, fps: 30 });
+    r.render(layers, { width: w, height: h, bg, t, comps, fps: 30, linear });
     return pts.map(([x, y]) => r.readPixel(x, y));
   },
 };

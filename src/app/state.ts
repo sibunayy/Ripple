@@ -4,6 +4,8 @@ import { History } from '../model/history';
 import { createLayer, createShapeLayer, createTextLayer, propOf, withProp, type BezPath, type Mask, type MaskMode, type MatteMode, type Layer, type PropKey, type ShapeContent, type ShapeKind, type TextContent, type Vec2, type Prop } from '../model/layer';
 import { ellipsePath, evalPath, recenter, rectPath, togglePathAnimated, writePath } from '../shape/path';
 import type { BlendMode } from '../render/blend';
+import { createEffect, paramKey, type Curves } from '../render/effects';
+import { applyPreset, type Preset } from '../anim/presets';
 import { maskProp } from '../render/masks';
 import { layerBox } from '../shape/geometry';
 import { shapePath } from '../shape/geometry';
@@ -171,6 +173,40 @@ export function precompose(ids: string[]) {
     return { ...q, comps: { ...q.comps, [id]: comp }, layers: rest.map((l) => (l.parent && set.has(l.parent) ? { ...l, parent: undefined } : l)) };
   });
   selection.value = [layer.id];
+}
+
+// ---- effects & presets -----------------------------------------------------------------------------------
+
+export function addEffect(layerId: string, type: string) {
+  const p = current.peek(); if (!p) return;
+  const c = createEffect(type, p.settings, newId()); if (!c) return;
+  editLayer(layerId, 'Add effect', (l) => ({ ...l, effects: [...(l.effects ?? []), c.effect], props: { ...l.props, ...c.props } }));
+  expanded.value = expanded.peek().includes(layerId) ? expanded.peek() : [...expanded.peek(), layerId];
+}
+export const removeEffect = (layerId: string, effectId: string) =>
+  editLayer(layerId, 'Remove effect', (l) => {
+    const props = Object.fromEntries(Object.entries(l.props ?? {}).filter(([k]) => !k.startsWith(`fx:${effectId}:`)));
+    return { ...l, props, effects: (l.effects ?? []).filter((e) => e.id !== effectId) };
+  });
+export const toggleEffect = (layerId: string, effectId: string) =>
+  editLayer(layerId, 'Toggle effect', (l) => ({ ...l, effects: l.effects?.map((e) => (e.id === effectId ? { ...e, enabled: !e.enabled } : e)) }));
+export const moveEffect = (layerId: string, effectId: string, dir: -1 | 1) =>
+  editLayer(layerId, 'Reorder effect', (l) => {
+    const fx = (l.effects ?? []).slice(), i = fx.findIndex((e) => e.id === effectId), j = i + dir;
+    if (i < 0 || j < 0 || j >= fx.length) return l;
+    [fx[i], fx[j]] = [fx[j]!, fx[i]!];
+    return { ...l, effects: fx };
+  });
+export const setCurves = (layerId: string, effectId: string, data: Curves) =>
+  editLayer(layerId, 'Edit curves', (l) => ({ ...l, effects: l.effects?.map((e) => (e.id === effectId ? { ...e, data } : e)) }), `curves:${effectId}`);
+
+/** Apply a preset to the selected layers at the playhead. */
+export function applyPresetToSelection(pr: Preset) {
+  const p = current.peek(); if (!p) return;
+  const ids = selection.peek(); if (!ids.length) return;
+  const t = frame();
+  commit(`Preset: ${pr.name}`, (q) => ({ ...q, layers: q.layers.map((l) => (ids.includes(l.id) ? applyPreset(l, pr, pr.anchor === 'out' ? l.in : Math.max(t, l.in), q.settings.fps, newId, q.settings) : l)) }));
+  for (const id of ids) if (!expanded.peek().includes(id)) expanded.value = [...expanded.peek(), id];
 }
 
 export const setBlend = (id: string, blend: BlendMode) => editLayer(id, 'Blend mode', (l) => ({ ...l, blend }));

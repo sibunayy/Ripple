@@ -22,7 +22,7 @@ function channelsFor(layers: Layer[]): Channel[] {
     const names = compLabels(prop, n);
     for (let c = 0; c < n; c++) out.push({
       id: `${l.id}:${prop}:${c}`, layer: l, prop, comp: c,
-      label: `${propLabel(prop)}${n > 1 ? ' ' + names[c] : ''}`, color: COLORS[out.length % COLORS.length]!,
+      label: `${propLabel(prop, l)}${n > 1 ? ' ' + names[c] : ''}`, color: COLORS[out.length % COLORS.length]!,
     });
   }
   return out;

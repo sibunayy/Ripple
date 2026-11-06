@@ -36,7 +36,7 @@ export class FrameSource {
   /** Render frame `t` into `canvas` (valid until the next call). */
   render(t: number) {
     const { settings: s, layers, comps } = this.p;
-    this.renderer.render(layers, { width: s.width, height: s.height, bg: s.bg, t, comps, fps: s.fps });
+    this.renderer.render(layers, { width: s.width, height: s.height, bg: s.bg, t, comps, fps: s.fps, linear: s.linearLight });
     return this.canvas;
   }
 }
