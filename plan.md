@@ -1,4 +1,4 @@
-# Ripple — plan for milestones M4–M9
+# RippleFlow — plan for milestones M4–M9
 
 Status: M0–M3 are shipped (PWA shell, engine, keyframes/graph, shapes/pen/text). This document turns spec §13 (milestones) into an ordered, buildable plan for the rest of v1, based on what the code looks like today. Spec §7 stays the source of truth for feature definitions; this file is about **order, design decisions and exit criteria**.
 
@@ -93,7 +93,7 @@ Deterministic `renderFrame(comp, frame) → texture` (already the shape of M4's 
 1. **Render queue**: multiple jobs, per-job comp/range/format/res scale/fps; persists across reloads (resumes or restarts cleanly).
 2. **Formats**: MP4 H.264 + HEVC (where available), WebM VP9/AV1 (`webm-muxer`), **GIF** (`gifenc`, dithering, palette per frame/global, size estimate), PNG/JPEG/WebP sequences, single stills; alpha: PNG/WebP/WebM-VP9 with alpha; frame-rate/resolution overrides; "export current frame" shortcut.
 3. **Speed**: worker-driven pipeline with 2–3 frames in flight, `VideoFrame(canvas)` zero-copy, hardware-encoder hints; benchmark in CI-like script on the device pass. Target ≥ 2× realtime at 1080p30.
-4. **`.ripple` bundle**: zip (`fflate`) containing `project.json` (+ schema version) and `assets/`; import (picker + share-sheet "Open in Ripple" via the PWA file-handler/share-target where Safari supports it) and export; **"Export backup" nudge** for non-installed/ITP sessions (spec §15).
+4. **`.ripple` bundle**: zip (`fflate`) containing `project.json` (+ schema version) and `assets/`; import (picker + share-sheet "Open in RippleFlow" via the PWA file-handler/share-target where Safari supports it) and export; **"Export backup" nudge** for non-installed/ITP sessions (spec §15).
 5. **Autosave hardening**: write-ahead copy (`<id>.json.tmp` → rename), versioned snapshots (last 5) with restore UI, corruption detection with recovery.
 
 **Exit:** 1080p export ≥ 2× realtime on M1 iPad; `.ripple` round-trip test (export → delete → import → identical render hash).
@@ -105,7 +105,7 @@ Deterministic `renderFrame(comp, frame) → texture` (already the shape of M4's 
 1. **Shader layers & effects.** GLSL ES 3.0 fragment editor (CodeMirror 6, lazy-loaded) with Shadertoy-style uniforms (`iTime`, `iResolution`, `iMouse`-less, `iChannel0` = layer below/ref layer), custom uniforms declared via `// @uniform name type min max default` comments → auto-generated, **keyframable** controls; live compile with line-accurate errors, safe-fallback on failure, per-shader perf warning; starter gallery (gradient, plasma, voronoi, scanline, kaleidoscope…). Sandbox: no network/DOM access by construction; iteration/time guards via a watchdog (device-lost recovery).
 2. **Lottie export.** Profile-based (Lottie-web compatible; features unsupported in the target are listed in a **compat report** before export): shape layers (paths/primitives/fill/stroke/gradients/trim/repeater/round corners), solids, nulls/parenting, precomps, transform/opacity keyframes with bézier `i/o` handles (hold keys → `h:1`), masks, track mattes, basic text, images, markers, layer timing. Elastic/Bounce eases are **baked to keyframes** at export (sampled adaptively).
 3. **Lottie import.** Bodymovin JSON → native layers/props (no lottie runtime dependency in the document); `.lottie` (dotLottie zip) support; warnings for unsupported features (expressions, 3D, some effects) with graceful degradation.
-4. **Round-trip suite.** devDependency `lottie-web` rendered headlessly vs Ripple render of the same JSON, per-feature scenes, perceptual-diff threshold; CI artifact reports.
+4. **Round-trip suite.** devDependency `lottie-web` rendered headlessly vs RippleFlow render of the same JSON, per-feature scenes, perceptual-diff threshold; CI artifact reports.
 5. **Motion blur.** Per-layer switch + comp shutter angle/phase; temporal supersampling (N sub-frames accumulated in RGBA16F; adaptive N from motion magnitude), off in interactive preview unless "motion blur" toggled, always on in export.
 6. **Text animators.** Range selector (start/end/offset, chars/words/lines, shape: square/ramp/triangle/round/smooth) with per-animator properties (position, scale, rotation, opacity, colour, blur, tracking); "animate in by char/word/line" presets; needs per-glyph layout (move text rasterisation to glyph runs).
 7. **3D LUT**: `.cube` import (17³/33³ → 2D strip texture or `TEXTURE_3D`), intensity, as an effect and as a project-level output transform.
@@ -130,13 +130,13 @@ Onboarding tour + starter templates (logo reveal, lower third, kinetic type, loa
 - **Schema/versioning:** every document-shape change bumps `Project.v` with a tested `migrate()` step; old `.ripple` files must keep opening.
 - **Performance budgets** (spec §10) are asserted in a benchmark script that runs headlessly for regressions and on-device for truth.
 
-## 3. Decisions that need your input (ask before the relevant milestone)
+## 3. Decisions (confirmed by the user)
 
-1. **M4.5 export-lite before M5?** (recommended) or stick to spec order.
-2. **Public beta point:** after M5 (recommended) vs after M7.
-3. **WebGPU:** build the backend during M5 only if profiling demands it (recommended) vs commit to it up front.
-4. **Audio:** stay out of v1 (current spec) or add waveform + mux in M7.
-5. **Product name** — resolve before any public beta.
+1. **M4.5 export-lite before M5:** yes.
+2. **Public beta:** after M5.
+3. **WebGPU:** only if profiling demands it; stay on WebGL2 otherwise.
+4. **Audio:** out of v1.
+5. **Product name:** **RippleFlow** (renamed from "Ripple"). The repo, GitHub Pages path (`/Ripple/`), `.ripple` file extension and internal identifiers keep the old name for now; a formal trademark/name check is still due before the public beta (M9 checklist).
 
 ## 4. Next action
 

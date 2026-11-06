@@ -1,4 +1,4 @@
-# Ripple
+# RippleFlow
 
 A lightweight motion-graphics editor that installs as a PWA on iPad (tuned for Apple M1). See [spec.md](spec.md) for the full design and [plan.md](plan.md) for the M4–M9 roadmap.
 

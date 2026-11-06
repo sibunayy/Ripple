@@ -1,4 +1,4 @@
-# Ripple — Specification
+# RippleFlow — Specification
 
 > A powerful, lightweight motion-graphics editor that installs as a PWA on iPad and is tuned for Apple M1 (iPad Air 5 / iPad Pro M1+).
 
@@ -164,7 +164,7 @@ Notes
 
 ### 5.2 File format — `.ripple`
 - ZIP container (`fflate`): `project.json`, `assets/<hash>.<ext>`, `thumb.png`, `meta.json`. Stored (no deflate) for already-compressed media.
-- Open: via file picker / share-sheet "Open in Ripple" (PWA `file_handlers` where supported) / drag-and-drop.
+- Open: via file picker / share-sheet "Open in RippleFlow" (PWA `file_handlers` where supported) / drag-and-drop.
 - Save: autosave to OPFS ("Projects" library) + **Export .ripple** to Files via share sheet. "Save" is instant (writes to OPFS); "Save a Copy…" exports.
 
 ---
@@ -329,7 +329,7 @@ Effect stack UX: add via searchable picker; drag to reorder; per-effect enable/b
 - Validate output through a bundled schema check; preview inside a lottie renderer (lazy-loaded `lottie-web` in sandboxed iframe) to confirm visual parity.
 
 **Import**:
-- Parse Bodymovin JSON → native Ripple layers/properties (no runtime lottie dependency in the document). Supports shapes, transforms, keyframes (bezier `i/o` handles → Ripple easing), masks, mattes, precomps/assets, parenting, trim paths, repeater, gradients, text (basic), images (embedded/external), layer timing (`ip/op/st/sr`), markers.
+- Parse Bodymovin JSON → native RippleFlow layers/properties (no runtime lottie dependency in the document). Supports shapes, transforms, keyframes (bezier `i/o` handles → RippleFlow easing), masks, mattes, precomps/assets, parenting, trim paths, repeater, gradients, text (basic), images (embedded/external), layer timing (`ip/op/st/sr`), markers.
 - Warnings list for unsupported items (expressions, certain effects); import still succeeds with placeholders.
 - dotLottie (`.lottie`) zip support via `fflate`.
 
