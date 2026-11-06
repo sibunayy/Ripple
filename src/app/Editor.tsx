@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
-  addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
+  activeComp, compPath, exitComp, addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
   keySel, moveSelectedKeys, pasteKeyframes, playhead, redo, rename, saveState, selection, setSettings, setWorkArea, undo, undoLabel,
 } from './state';
 import { cancelPen, deleteSelectedNode, finishPen, nodeSel, penDraft, setTool, TOOLS, tool } from './tools';
@@ -65,7 +65,10 @@ export function Editor() {
   return (
     <div class={`editor ${panels.value.left ? '' : 'no-left'} ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
       <header class="topbar">
-        <button class="btn" onClick={() => void closeProject()} aria-label="Back to library">‹ Library</button>
+        {activeComp.value
+          ? <button class="btn" onClick={exitComp} aria-label="Back to parent composition">‹ {compPath().length > 1 ? compPath()[compPath().length - 2] : 'Main'}</button>
+          : <button class="btn" onClick={() => void closeProject()} aria-label="Back to library">‹ Library</button>}
+        {activeComp.value && <strong class="crumb">{compPath()[compPath().length - 1]}</strong>}
         <input class="title" value={p.name} aria-label="Project name" onChange={(e) => rename((e.target as HTMLInputElement).value)} />
         <span class={`save ${saveState.value}`} role="status">{SAVE_LABEL[saveState.value]}</span>
         <span class="spacer" />

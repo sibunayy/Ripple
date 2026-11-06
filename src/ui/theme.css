@@ -186,3 +186,8 @@ input[type='color'] { width: 100%; height: var(--hit); border: 1px solid var(--l
 .stop input[type='color'] { height: 36px; padding: 2px; }
 .textin { width: 100%; min-height: 70px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); color: var(--text); font: inherit; padding: 8px; resize: vertical; }
 .check { display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: 14px; }
+
+/* M4 */
+.crumb { white-space: nowrap; color: var(--accent); }
+.mask { display: grid; gap: 8px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; } .mask.on { border-color: var(--accent); }
+.mask .seg select { flex: 2; }

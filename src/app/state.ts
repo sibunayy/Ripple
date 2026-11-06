@@ -1,8 +1,11 @@
 import { signal } from '@preact/signals';
-import { createProject, newId, sanitizeSettings, workRange, type Project, type ProjectSettings } from '../model/project';
+import { createProject, newId, sanitizeSettings, workRange, type Comp, type Project, type ProjectSettings } from '../model/project';
 import { History } from '../model/history';
-import { createLayer, createShapeLayer, createTextLayer, propOf, withProp, type BezPath, type Layer, type PropKey, type ShapeContent, type ShapeKind, type TextContent, type Vec2, type Prop } from '../model/layer';
-import { recenter } from '../shape/path';
+import { createLayer, createShapeLayer, createTextLayer, propOf, withProp, type BezPath, type Mask, type MaskMode, type MatteMode, type Layer, type PropKey, type ShapeContent, type ShapeKind, type TextContent, type Vec2, type Prop } from '../model/layer';
+import { ellipsePath, evalPath, recenter, rectPath, togglePathAnimated, writePath } from '../shape/path';
+import type { BlendMode } from '../render/blend';
+import { maskProp } from '../render/masks';
+import { layerBox } from '../shape/geometry';
 import { shapePath } from '../shape/geometry';
 import { evalProp, writeProp, toggleAnimated } from '../anim/interp';
 import { reparent } from '../eval/evaluate';
@@ -26,6 +29,47 @@ export const playhead = signal(0);
 export const historyRev = signal(0);
 
 const history = new History<Project>();
+
+// ---- nested comps ----------------------------------------------------------------------------------------
+// `current` is always the comp being edited, presented as a Project. While inside a precomp the root project is
+// parked on a stack and merged back when saving or leaving, so every editing operation works unchanged.
+const stack: { root: Project; compId: string }[] = [];
+/** Id of the comp being edited, or null for the root comp. */
+export const activeComp = signal<string | null>(null);
+
+const asComp = (p: Project, id: string): Comp => ({ id, name: p.comps[id]?.name ?? 'Comp', width: p.settings.width, height: p.settings.height, fps: p.settings.fps, duration: p.settings.duration, layers: p.layers });
+/** The full document (root comp + all nested comps), regardless of which comp is being edited. */
+export function rootProject(): Project {
+  let cur = current.peek()!;
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const { root, compId } = stack[i]!;
+    cur = { ...root, comps: { ...root.comps, ...cur.comps, [compId]: asComp(cur, compId) }, modified: cur.modified };
+  }
+  return cur;
+}
+const view = (root: Project, c: Comp): Project => ({ ...root, settings: { ...root.settings, width: c.width, height: c.height, fps: c.fps, duration: c.duration }, layers: c.layers, markers: [], workArea: null });
+
+export function enterComp(id: string) {
+  const p = current.peek(); const c = p?.comps[id];
+  if (!p || !c || stack.some((s) => s.compId === id) || id === activeComp.peek()) return;
+  stack.push({ root: p, compId: id });
+  history.clear(); historyRev.value++;
+  selection.value = []; keySel.value = []; expanded.value = []; playhead.value = 0;
+  activeComp.value = id;
+  current.value = view(p, c);
+}
+export function exitComp() {
+  const top = stack.pop(); const p = current.peek();
+  if (!top || !p) return;
+  const merged = { ...top.root, comps: { ...top.root.comps, ...p.comps, [top.compId]: asComp(p, top.compId) }, modified: Date.now() };
+  history.clear(); historyRev.value++;
+  selection.value = []; keySel.value = []; expanded.value = []; playhead.value = 0;
+  activeComp.value = stack.length ? stack[stack.length - 1]!.compId : null;
+  current.value = stack.length ? view(merged, merged.comps[activeComp.value!]!) : merged;
+  touch();
+}
+/** Names of the comps from the root down to the active one, for the breadcrumb. */
+export const compPath = () => { const p = rootProject(); return stack.map((s) => p.comps[s.compId]?.name ?? 'Comp'); };
 export const canUndo = () => (historyRev.value, history.canUndo);
 export const canRedo = () => (historyRev.value, history.canRedo);
 export const undoLabel = () => (historyRev.value, history.undoLabel);
@@ -40,7 +84,7 @@ export async function flush() {
   const p = current.value;
   if (!p || saveState.value === 'saved') return;
   saveState.value = 'saving';
-  try { await saveProject(p); saveState.value = 'saved'; }
+  try { await saveProject(rootProject()); saveState.value = 'saved'; }
   catch (e) { console.error(e); saveState.value = 'error'; }
 }
 
@@ -97,6 +141,99 @@ export function addLayer(type: Layer['type']) {
   const layer = createLayer(type, p.settings, p.layers.length);
   commit(`Add ${type} layer`, (q) => ({ ...q, layers: [layer, ...q.layers] }));
   selection.value = [layer.id];
+}
+
+export function addAdjustment() { addLayer('adjustment'); }
+
+/** Create a new empty comp and a precomp layer pointing at it. */
+export function addComp() {
+  const p = current.peek(); if (!p) return;
+  const id = newId();
+  const comp: Comp = { id, name: `Comp ${Object.keys(p.comps).length + 1}`, width: p.settings.width, height: p.settings.height, fps: p.settings.fps, duration: p.settings.duration, layers: [] };
+  const layer = { ...createLayer('precomp', p.settings, p.layers.length, comp.name), precomp: { comp: id, offset: 0 } };
+  commit('Add comp', (q) => ({ ...q, comps: { ...q.comps, [id]: comp }, layers: [layer, ...q.layers] }));
+  selection.value = [layer.id];
+}
+
+/** Move the selected layers into a new comp, replaced by one precomp layer. */
+export function precompose(ids: string[]) {
+  const p = current.peek(); if (!p || !ids.length) return;
+  const picked = p.layers.filter((l) => ids.includes(l.id));
+  if (!picked.length) return;
+  const id = newId(), set = new Set(picked.map((l) => l.id));
+  const comp: Comp = { id, name: `Precomp ${Object.keys(p.comps).length + 1}`, width: p.settings.width, height: p.settings.height, fps: p.settings.fps, duration: p.settings.duration,
+    layers: picked.map((l) => (l.parent && !set.has(l.parent) ? { ...l, parent: undefined } : l)) };
+  const layer = { ...createLayer('precomp', p.settings, p.layers.length, comp.name), precomp: { comp: id, offset: 0 } };
+  commit('Pre-compose', (q) => {
+    const idx = Math.min(...picked.map((l) => q.layers.indexOf(l)).filter((i) => i >= 0));
+    const rest = q.layers.filter((l) => !set.has(l.id));
+    rest.splice(Math.max(0, idx), 0, layer);
+    return { ...q, comps: { ...q.comps, [id]: comp }, layers: rest.map((l) => (l.parent && set.has(l.parent) ? { ...l, parent: undefined } : l)) };
+  });
+  selection.value = [layer.id];
+}
+
+export const setBlend = (id: string, blend: BlendMode) => editLayer(id, 'Blend mode', (l) => ({ ...l, blend }));
+export const setMatte = (id: string, layer: string | null, mode: MatteMode = 'alpha') =>
+  editLayer(id, 'Track matte', (l) => { const n = { ...l }; if (layer) n.matte = { layer, mode }; else delete n.matte; return n; });
+export const setClip = (id: string, clip: boolean) => editLayer(id, 'Clip to layer below', (l) => ({ ...l, clip }));
+
+// ---- masks -----------------------------------------------------------------------------------------------
+
+/** Selected mask of the selected layer (UI state). */
+export const selMask = signal<string | null>(null);
+
+export function addMask(id: string, kind: 'rect' | 'ellipse' = 'rect') {
+  const t = frame();
+  let mid = '';
+  editLayer(id, 'Add mask', (l) => {
+    const b = layerBox(l, t), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+    const w = Math.max(20, (b[2] - b[0]) * 0.7), h = Math.max(20, (b[3] - b[1]) * 0.7);
+    const base = kind === 'rect' ? rectPath(w, h, 0) : ellipsePath(w, h);
+    const path: BezPath = { closed: true, nodes: base.nodes.map((n) => ({ ...n, p: [n.p[0] + cx, n.p[1] + cy] })) };
+    mid = newId();
+    const m: Mask = { id: mid, name: `Mask ${(l.masks?.length ?? 0) + 1}`, mode: 'add', invert: false, path };
+    return { ...l, masks: [...(l.masks ?? []), m], props: { ...l.props,
+      [maskProp(mid, 'opacity')]: { value: 100 }, [maskProp(mid, 'feather')]: { value: 0 }, [maskProp(mid, 'expansion')]: { value: 0 } } };
+  });
+  selMask.value = mid;
+}
+export const editMask = (layer: string, mask: string, patch: Partial<Mask>, key?: string) =>
+  editLayer(layer, 'Edit mask', (l) => ({ ...l, masks: l.masks?.map((m) => (m.id === mask ? { ...m, ...patch } : m)) }), key);
+export function deleteMask(layer: string, mask: string) {
+  editLayer(layer, 'Delete mask', (l) => {
+    const props = { ...l.props };
+    for (const w of ['opacity', 'feather', 'expansion'] as const) delete props[maskProp(mask, w)];
+    return { ...l, props, masks: (l.masks ?? []).filter((m) => m.id !== mask) };
+  });
+  selMask.value = null;
+}
+
+/** The path being node-edited on a layer: the selected mask's, else a shape layer's own path. Always resolved at time t. */
+export function editablePath(l: Layer, t = frame()): { path: BezPath; raw: BezPath; mask: string | null } | null {
+  const m = selMask.value && l.masks?.find((x) => x.id === selMask.value);
+  if (m) return { path: evalPath(m.path, t), raw: m.path, mask: m.id };
+  if (l.type === 'shape' && l.shape?.kind === 'path' && l.shape.path) return { path: evalPath(l.shape.path, t), raw: l.shape.path, mask: null };
+  return null;
+}
+/** Write back an edited (resolved-at-t) path to whichever target `editablePath` returned. */
+export function setEditablePath(id: string, next: BezPath, key = 'path') {
+  const t = frame();
+  editLayer(id, 'Edit path', (l) => {
+    const e = editablePath(l, t); if (!e) return l;
+    const written = writePath(e.raw, next, t);
+    if (e.mask) return { ...l, masks: l.masks!.map((m) => (m.id === e.mask ? { ...m, path: written } : m)) };
+    return { ...l, shape: { ...l.shape!, path: written } };
+  }, `${key}:${id}`);
+}
+export function togglePathAnim(id: string) {
+  const t = frame();
+  editLayer(id, 'Animate path', (l) => {
+    const e = editablePath(l, t); if (!e) return l;
+    const next = togglePathAnimated(e.raw, t);
+    if (e.mask) return { ...l, masks: l.masks!.map((m) => (m.id === e.mask ? { ...m, path: next } : m)) };
+    return { ...l, shape: { ...l.shape!, path: next } };
+  });
 }
 
 export function deleteLayers(ids: string[]) {
@@ -175,8 +312,7 @@ export const editShape = (id: string, fn: (s: ShapeContent) => ShapeContent, key
 export const editText = (id: string, patch: Partial<TextContent>, key?: string) =>
   editLayer(id, 'Edit text', (l) => (l.text ? { ...l, text: { ...l.text, ...patch } } : l), key ? `${key}:${id}` : undefined);
 
-export const setPath = (id: string, path: BezPath, key?: string) =>
-  editShape(id, (s) => ({ ...s, path }), key ?? 'path');
+export const setPath = (id: string, path: BezPath, key?: string) => setEditablePath(id, path, key ?? 'path');
 
 /** Add a shape layer; `key` lets a creation drag coalesce with later size edits into one undo step. */
 export function addShape(kind: ShapeKind, at: Vec2, path?: BezPath, key?: string): string | null {
@@ -291,6 +427,7 @@ export const currentWorkRange = (): [number, number] => workRange(current.peek()
 // ---- project lifecycle -------------------------------------------------------
 
 function open(p: Project) {
+  stack.length = 0; activeComp.value = null;
   history.clear(); historyRev.value++;
   selection.value = [];
   keySel.value = [];
@@ -314,6 +451,7 @@ export async function openProject(id: string): Promise<void> {
 }
 
 export async function closeProject(): Promise<void> {
+  while (stack.length) exitComp();
   await flush();
   current.value = null;
   history.clear();

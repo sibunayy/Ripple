@@ -1,6 +1,6 @@
 // Resolve a shape layer's animated parameters into concrete geometry at time t, and measure/hit-test layers.
 import { evalProp } from '../anim/interp';
-import { distToPoly, ellipsePath, flatten, pathBounds, pointInPoly, polygonPath, rectPath, starPath, type Box } from './path';
+import { evalPath, distToPoly, ellipsePath, flatten, pathBounds, pointInPoly, polygonPath, rectPath, starPath, type Box } from './path';
 import { layoutText } from '../text/metrics';
 import type { BezPath, Layer, Prop, Vec2 } from '../model/layer';
 
@@ -16,7 +16,7 @@ export function shapePath(l: Layer, t: number): BezPath | null {
     case 'ellipse': { const [w, h] = pv<Vec2>(l, 'shape.size', t, [200, 200]); return ellipsePath(w, h); }
     case 'polygon': return polygonPath(pv(l, 'shape.points', t, 5), pv(l, 'shape.outer', t, 100));
     case 'star': return starPath(pv(l, 'shape.points', t, 5), pv(l, 'shape.outer', t, 120), pv(l, 'shape.inner', t, 50));
-    default: return s.path ?? null;
+    default: return s.path ? evalPath(s.path, t) : null;
   }
 }
 
