@@ -1,20 +1,20 @@
 // Keyframe-level operations on layer stacks (spec §7.6). Pure: every function returns new layers.
 import { isAnimated, removeKey } from './interp';
-import type { Ease, Keyframe, Layer, Prop, TransformKey } from '../model/layer';
+import { allProps, propOf, withProp as withPropL, type Ease, type Keyframe, type Layer, type Prop, type PropKey } from '../model/layer';
 
-export interface KeyRef { layer: string; prop: TransformKey; t: number }
+export interface KeyRef { layer: string; prop: PropKey; t: number }
 type AnyKey = Keyframe<number | number[]>;
 type AnyProp = Prop<number | number[]>;
 
 export const sameKey = (a: KeyRef, b: KeyRef) => a.layer === b.layer && a.prop === b.prop && a.t === b.t;
 const groupKey = (r: KeyRef) => `${r.layer}\0${r.prop}`;
 
-const getProp = (l: Layer, k: TransformKey) => l.transform[k] as AnyProp;
-const withProp = (l: Layer, k: TransformKey, p: AnyProp): Layer => ({ ...l, transform: { ...l.transform, [k]: p } });
+const getProp = (l: Layer, k: PropKey) => propOf(l, k) as AnyProp;
+const withProp = (l: Layer, k: PropKey, p: AnyProp): Layer => withPropL(l, k, p);
 
 /** Apply fn to each (layer, prop) group that has refs. Untouched layers keep identity. */
 function mapGroups(layers: Layer[], refs: KeyRef[], fn: (p: { keys: AnyKey[] }, ts: Set<number>) => AnyProp): Layer[] {
-  const groups = new Map<string, { layer: string; prop: TransformKey; ts: Set<number> }>();
+  const groups = new Map<string, { layer: string; prop: PropKey; ts: Set<number> }>();
   for (const r of refs) {
     const g = groups.get(groupKey(r)) ?? { layer: r.layer, prop: r.prop, ts: new Set<number>() };
     g.ts.add(r.t); groups.set(groupKey(r), g);
@@ -32,7 +32,7 @@ function mapGroups(layers: Layer[], refs: KeyRef[], fn: (p: { keys: AnyKey[] }, 
 
 /** True if a key exists for the ref. */
 export const keyExists = (layers: readonly Layer[], r: KeyRef): boolean => {
-  const p = layers.find((l) => l.id === r.layer)?.transform[r.prop] as AnyProp | undefined;
+  const p = propOf(layers.find((l) => l.id === r.layer) ?? ({} as Layer), r.prop) as AnyProp | undefined;
   return !!p && isAnimated(p) && p.keys.some((k) => k.t === r.t);
 };
 
@@ -84,14 +84,14 @@ export function setKeyValue(layers: Layer[], r: KeyRef, comp: number, value: num
   }));
 }
 
-export interface ClipEntry { prop: TransformKey; dt: number; v: number | number[]; ease: Ease }
+export interface ClipEntry { prop: PropKey; dt: number; v: number | number[]; ease: Ease }
 
 export function copyKeys(layers: readonly Layer[], refs: KeyRef[]): ClipEntry[] {
   if (!refs.length) return [];
   const t0 = Math.min(...refs.map((r) => r.t));
   const out: ClipEntry[] = [];
   for (const r of refs) {
-    const p = layers.find((l) => l.id === r.layer)?.transform[r.prop] as AnyProp | undefined;
+    const p = propOf(layers.find((l) => l.id === r.layer) ?? ({} as Layer), r.prop) as AnyProp | undefined;
     const k = p && isAnimated(p) ? p.keys.find((x) => x.t === r.t) : undefined;
     if (k) out.push({ prop: r.prop, dt: r.t - t0, v: Array.isArray(k.v) ? k.v.slice() : k.v, ease: k.ease });
   }
@@ -123,7 +123,7 @@ export function nextKeyTime(layers: readonly Layer[], ids: readonly string[], t:
   let best: number | null = null;
   for (const l of layers) {
     if (!ids.includes(l.id)) continue;
-    for (const p of Object.values(l.transform) as AnyProp[]) {
+    for (const [, p] of allProps(l) as [string, AnyProp][]) {
       if (!isAnimated(p)) continue;
       for (const k of p.keys) if (dir > 0 ? k.t > t : k.t < t) if (best === null || (dir > 0 ? k.t < best : k.t > best)) best = k.t;
     }

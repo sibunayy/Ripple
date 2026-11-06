@@ -2,7 +2,7 @@
 
 A lightweight motion-graphics editor that installs as a PWA on iPad (tuned for Apple M1). See [spec.md](spec.md) for the full design.
 
-**Status:** M2 — dope sheet, graph editor, 30-curve easing library, markers, work area, copy/paste keys. Earlier: M1 — document model with undo/redo, WebGL2 renderer, viewer (pinch zoom/pan, select, drag), layers panel, inspector with keyframes, timeline, playback.
+**Status:** M3 — shapes (rectangle, ellipse, polygon, star, line, pen with node editing), fill/stroke/gradients, trim paths, repeater, text layers with font import. Earlier: M2 — dope sheet, graph editor, 30-curve easing library, markers, work area, copy/paste keys. Earlier: M1 — document model with undo/redo, WebGL2 renderer, viewer (pinch zoom/pan, select, drag), layers panel, inspector with keyframes, timeline, playback.
 
 ## Develop
 

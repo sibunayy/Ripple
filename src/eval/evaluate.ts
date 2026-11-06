@@ -2,6 +2,7 @@
 // layers[0] is the TOP layer (After Effects convention).
 import { evalProp } from '../anim/interp';
 import { compose, decompose, IDENT, invert, mul, apply, type Mat } from './affine';
+import { hitLayer, layerBox } from '../shape/geometry';
 import type { Layer, TransformKey, Vec2 } from '../model/layer';
 
 export interface Resolved {
@@ -39,19 +40,19 @@ export function evaluate(layers: readonly Layer[], t: number): Resolved[] {
 }
 
 /** World corners of the layer rectangle (for outlines). */
-export function corners(r: Resolved): Vec2[] {
-  const [w, h] = r.layer.size;
-  return ([[0, 0], [w, 0], [w, h], [0, h]] as Vec2[]).map(([x, y]) => apply(r.world, x, y));
+export function corners(r: Resolved, t = 0): Vec2[] {
+  const [x0, y0, x1, y1] = layerBox(r.layer, t);
+  return ([[x0, y0], [x1, y0], [x1, y1], [x0, y1]] as Vec2[]).map(([x, y]) => apply(r.world, x, y));
 }
 
 /** Topmost active layer under (x, y) in comp coordinates. */
-export function hitTest(resolved: readonly Resolved[], x: number, y: number): string | null {
+export function hitTest(resolved: readonly Resolved[], x: number, y: number, t = 0, slop = 6): string | null {
   for (const r of resolved) {
     if (!r.active) continue;
     const inv = invert(r.world);
     if (!inv) continue;
     const [lx, ly] = apply(inv, x, y);
-    if (lx >= 0 && ly >= 0 && lx <= r.layer.size[0] && ly <= r.layer.size[1]) return r.layer.id;
+    if (hitLayer(r.layer, t, lx, ly, slop / Math.max(1e-6, Math.sqrt(Math.abs(r.world[0]! * r.world[3]! - r.world[1]! * r.world[2]!))))) return r.layer.id;
   }
   return null;
 }

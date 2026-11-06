@@ -92,3 +92,28 @@ export async function deleteProject(id: string): Promise<void> {
   else await tx(BLOBS, 'readwrite', (s) => s.delete(id));
   await tx(INDEX, 'readwrite', (s) => s.delete(id));
 }
+
+// ---- fonts (app-level, shared by all projects) -------------------------------------------------------
+
+export interface FontRecord { family: string; blob: Blob }
+
+export async function saveFont(family: string, blob: Blob): Promise<void> {
+  await tx(BLOBS, 'readwrite', (s) => s.put(blob, `font:${family}`));
+}
+export async function loadFonts(): Promise<FontRecord[]> {
+  const d = await db();
+  try {
+    return await new Promise<FontRecord[]>((resolve, reject) => {
+      const out: FontRecord[] = [];
+      const r = d.transaction(BLOBS, 'readonly').objectStore(BLOBS).openCursor(IDBKeyRange.bound('font:', 'font:\uffff'));
+      r.onsuccess = () => {
+        const c = r.result;
+        if (c) { out.push({ family: String(c.key).slice(5), blob: c.value as Blob }); c.continue(); } else resolve(out);
+      };
+      r.onerror = () => reject(r.error);
+    });
+  } finally { d.close(); }
+}
+export async function deleteFont(family: string): Promise<void> {
+  await tx(BLOBS, 'readwrite', (s) => s.delete(`font:${family}`));
+}
