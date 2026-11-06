@@ -1,5 +1,6 @@
 // Keyframe interpolation (spec §7.6). Pure; no DOM.
 import { DEFAULT_EASE, type Ease, type Keyframe, type Prop } from '../model/layer';
+import { applyEaseFn } from './easings';
 
 type V = number | number[];
 
@@ -33,6 +34,7 @@ export function bezierEase(x1: number, y1: number, x2: number, y2: number, x: nu
 export function applyEase(e: Ease, u: number): number {
   if (e === 'linear') return u;
   if (e === 'hold') return 0;
+  if (!Array.isArray(e)) return applyEaseFn(e, u);
   return bezierEase(e[0], e[1], e[2], e[3], u);
 }
 

@@ -2,8 +2,9 @@
 import { newId, type ColorRGBA, type ProjectSettings } from './project';
 
 export type Vec2 = [number, number];
-/** 'linear' | 'hold' | cubic-bezier control points [x1, y1, x2, y2] (CSS-style). */
-export type Ease = 'linear' | 'hold' | [number, number, number, number];
+/** Easing of the segment AFTER a keyframe: linear, hold, cubic-bezier [x1, y1, x2, y2] (CSS-style) or a function curve. */
+export type EaseFn = { fn: 'elastic' | 'bounce'; mode: 'in' | 'out' | 'inout' };
+export type Ease = 'linear' | 'hold' | [number, number, number, number] | EaseFn;
 export interface Keyframe<T> { t: number; v: T; ease: Ease }
 export type Prop<T> = { value: T } | { keys: Keyframe<T>[] };
 

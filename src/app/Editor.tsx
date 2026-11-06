@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
-  canRedo, canUndo, closeProject, current, deleteLayers, duplicateLayers, flush, playhead, redo, rename,
-  saveState, selection, setSettings, undo, undoLabel,
+  addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
+  keySel, moveSelectedKeys, pasteKeyframes, playhead, redo, rename, saveState, selection, setSettings, setWorkArea, undo, undoLabel,
 } from './state';
 import { pause, play, playing, seek, step, togglePlay } from './playback';
 import { Viewer } from './Viewer';
@@ -25,12 +25,24 @@ function useShortcuts() {
       if (mod && k === 's') { e.preventDefault(); void flush(); return; }
       if (typing(e.target)) return;
       if (mod && k === 'd') { e.preventDefault(); duplicateLayers(selection.peek()); return; }
+      if (mod && k === 'c' && keySel.peek().length) { e.preventDefault(); copySelectedKeys(); return; }
+      if (mod && k === 'v') { e.preventDefault(); pasteKeyframes(); return; }
+      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        const t = jumpToKey(e.key === 'ArrowRight' ? 1 : -1);
+        if (t !== null) seek(t);
+        return;
+      }
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && keySel.peek().length && e.shiftKey && mod) { e.preventDefault(); moveSelectedKeys(e.key === 'ArrowRight' ? 1 : -1); return; }
+      if (k === 'm' && !mod) { e.preventDefault(); addMarker(); return; }
+      if (k === 'i' && !mod) { e.preventDefault(); const p = current.peek()!; setWorkArea([frame(), p.workArea?.[1] ?? p.settings.duration]); return; }
+      if (k === 'o' && !mod) { e.preventDefault(); const p = current.peek()!; setWorkArea([p.workArea?.[0] ?? 0, frame() + 1]); return; }
       if (e.key === ' ') { e.preventDefault(); togglePlay(); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); step(e.shiftKey ? -10 : -1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); step(e.shiftKey ? 10 : 1); }
       else if (e.key === 'Home') { e.preventDefault(); seek(0); }
       else if (e.key === 'End') { e.preventDefault(); seek(Infinity); }
-      else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteLayers(selection.peek()); }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); if (keySel.peek().length) deleteSelectedKeys(); else deleteLayers(selection.peek()); }
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);

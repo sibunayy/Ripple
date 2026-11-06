@@ -1,9 +1,11 @@
 import { signal } from '@preact/signals';
-import { createProject, sanitizeSettings, type Project, type ProjectSettings } from '../model/project';
+import { createProject, newId, sanitizeSettings, workRange, type Project, type ProjectSettings } from '../model/project';
 import { History } from '../model/history';
 import { createLayer, type Layer, type TransformKey, type Vec2, type Prop } from '../model/layer';
 import { evalProp, writeProp, toggleAnimated } from '../anim/interp';
 import { reparent } from '../eval/evaluate';
+import { copyKeys, deleteKeys, moveKeys, nextKeyTime, pasteKeys, pruneRefs, setEaseOnKeys, setKeyValue, type ClipEntry, type KeyRef } from '../anim/keys';
+import type { Ease } from '../model/layer';
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectMeta } from '../io/store';
 
 export const library = signal<ProjectMeta[]>([]);
@@ -11,6 +13,11 @@ export const current = signal<Project | null>(null);
 export const saveState = signal<'saved' | 'dirty' | 'saving' | 'error'>('saved');
 /** Selected layer ids (UI state; never part of history). */
 export const selection = signal<string[]>([]);
+/** Selected keyframes (UI state). */
+export const keySel = signal<KeyRef[]>([]);
+/** Layers whose animated properties are expanded in the timeline. */
+export const expanded = signal<string[]>([]);
+export const selMarker = signal<string | null>(null);
 /** Playhead in frames. Integer when paused; fractional while playing. */
 export const playhead = signal(0);
 /** Bumped on undo/redo/commit so toolbar buttons can re-render. */
@@ -56,6 +63,11 @@ export function commit(label: string, fn: (p: Project) => Project, key?: string)
 const restoreSelection = () => {
   const ids = new Set(current.value?.layers.map((l) => l.id));
   selection.value = selection.value.filter((id) => ids.has(id));
+  const p = current.value;
+  if (p) {
+    keySel.value = pruneRefs(p.layers, keySel.value);
+    if (selMarker.value && !p.markers.some((m) => m.id === selMarker.value)) selMarker.value = null;
+  }
 };
 export function undo() {
   const cur = current.value; if (!cur) return;
@@ -139,6 +151,7 @@ export function setTransform(id: string, prop: TransformKey, value: number | Vec
 
 export function toggleStopwatch(id: string, prop: TransformKey) {
   const t = frame();
+  if (!expanded.peek().includes(id)) expanded.value = [...expanded.peek(), id];
   commit('Toggle animation', (p) => mapLayer(p, id, (l) => ({
     ...l, transform: { ...l.transform, [prop]: toggleAnimated(l.transform[prop] as Prop<never>, t) },
   })));
@@ -146,11 +159,93 @@ export function toggleStopwatch(id: string, prop: TransformKey) {
 
 export const valueAt = (l: Layer, prop: TransformKey, t = frame()) => evalProp(l.transform[prop] as Prop<never>, t) as number | Vec2;
 
+// ---- keyframes -----------------------------------------------------------------
+
+export const toggleExpanded = (id: string) =>
+  (expanded.value = expanded.value.includes(id) ? expanded.value.filter((x) => x !== id) : [...expanded.value, id]);
+
+let clipboard: ClipEntry[] = [];
+
+/** Move all selected keyframes by dt frames (drags coalesce into one undo step). */
+export function moveSelectedKeys(dt: number) {
+  if (!dt || !keySel.peek().length) return;
+  let refs = keySel.peek();
+  commit('Move keyframes', (p) => {
+    const r = moveKeys(p.layers, keySel.peek(), dt, p.settings.duration - 1);
+    refs = r.refs;
+    return { ...p, layers: r.layers };
+  }, 'kfmove');
+  keySel.value = refs;
+}
+
+export function deleteSelectedKeys() {
+  const refs = keySel.peek(); if (!refs.length) return;
+  commit('Delete keyframes', (p) => ({ ...p, layers: deleteKeys(p.layers, refs) }));
+  keySel.value = [];
+}
+
+export const setEaseOnSelected = (ease: Ease, refs: KeyRef[] = keySel.peek()) => {
+  if (!refs.length) return;
+  commit('Change easing', (p) => ({ ...p, layers: setEaseOnKeys(p.layers, refs, ease) }), refs.length === 1 ? `ease:${refs[0]!.layer}:${refs[0]!.prop}:${refs[0]!.t}` : undefined);
+};
+
+export const setKeyComponent = (ref: KeyRef, comp: number, value: number) =>
+  commit('Edit keyframe value', (p) => ({ ...p, layers: setKeyValue(p.layers, ref, comp, value) }), 'kfmove');
+
+export function copySelectedKeys() {
+  const p = current.peek(); if (!p) return;
+  clipboard = copyKeys(p.layers, keySel.peek());
+}
+
+export function pasteKeyframes() {
+  const id = selection.peek()[0]; if (!id || !clipboard.length) return;
+  let refs: KeyRef[] = [];
+  commit('Paste keyframes', (p) => {
+    const r = pasteKeys(p.layers, id, clipboard, frame(), p.settings.duration - 1);
+    refs = r.refs; return { ...p, layers: r.layers };
+  });
+  keySel.value = refs;
+  if (!expanded.peek().includes(id)) expanded.value = [...expanded.peek(), id];
+}
+
+/** Jump the playhead to the next/previous keyframe of the selected layers. Returns the target frame. */
+export function jumpToKey(dir: 1 | -1): number | null {
+  const p = current.peek(); if (!p) return null;
+  return nextKeyTime(p.layers, selection.peek(), frame(), dir);
+}
+
+// ---- markers & work area ---------------------------------------------------------
+
+export function addMarker(t = frame()) {
+  const id = newId();
+  commit('Add marker', (p) => p.markers.some((m) => m.t === t) ? p
+    : { ...p, markers: [...p.markers, { id, t, name: `Marker ${p.markers.length + 1}` }].sort((a, b) => a.t - b.t) });
+  selMarker.value = current.peek()?.markers.find((m) => m.t === t)?.id ?? null;
+}
+export const removeMarker = (id: string) => { commit('Delete marker', (p) => ({ ...p, markers: p.markers.filter((m) => m.id !== id) })); selMarker.value = null; };
+export const renameMarker = (id: string, name: string) =>
+  commit('Rename marker', (p) => ({ ...p, markers: p.markers.map((m) => (m.id === id ? { ...m, name: name.trim() || m.name } : m)) }));
+
+/** Set the work area; null resets to the full duration. */
+export function setWorkArea(range: [number, number] | null, key?: string) {
+  commit('Work area', (p) => {
+    if (!range) return p.workArea ? { ...p, workArea: null } : p;
+    const d = p.settings.duration;
+    const a = Math.min(Math.max(0, Math.round(range[0])), d - 1), b = Math.min(d, Math.max(a + 1, Math.round(range[1])));
+    const next: [number, number] = a === 0 && b === d ? [0, d] : [a, b];
+    return p.workArea && p.workArea[0] === next[0] && p.workArea[1] === next[1] ? p : { ...p, workArea: next };
+  }, key);
+}
+export const currentWorkRange = (): [number, number] => workRange(current.peek()!);
+
 // ---- project lifecycle -------------------------------------------------------
 
 function open(p: Project) {
   history.clear(); historyRev.value++;
   selection.value = [];
+  keySel.value = [];
+  expanded.value = [];
+  selMarker.value = null;
   playhead.value = 0;
   current.value = p;
   saveState.value = 'saved';
