@@ -10,6 +10,7 @@ import { BLEND_GLSL, blendIndex } from './blend';
 import { maskCanvas } from './masks';
 import { effectsInput } from './effects';
 import type { Layer } from '../model/layer';
+import { imageFor, videoFor } from './media';
 
 const QVS = `#version 300 es
 layout(location=0) in vec2 a;
@@ -122,6 +123,9 @@ export class GLRenderer {
   private pool = new Map<string, RT[]>();
   private maskTex: WebGLTexture | null = null;
   private rasterTex: WebGLTexture | null = null;
+  /** Media textures (images uploaded once, video re-uploaded when its frame changes); LRU under a byte budget. */
+  private mediaTex = new Map<string, { tex: WebGLTexture; ver: string; bytes: number }>();
+  mediaBudget = 384 * 1024 * 1024;
   lost = false;
   stats = { passes: 0, rts: 0 };
 
@@ -170,7 +174,7 @@ export class GLRenderer {
       shComp: this.program(FVS, SH_COMP_FS, ['u_src', 'u_sh', 'u_off']),
     };
     this.floatOK = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
-    this.pool.clear(); this.maskTex = null; this.rasterTex = null; this.stats.rts = 0;
+    this.pool.clear(); this.maskTex = null; this.rasterTex = null; this.mediaTex.clear(); this.stats.rts = 0;
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
@@ -344,6 +348,31 @@ export class GLRenderer {
     return out;
   }
 
+  private mediaTexture(key: string, src: TexImageSource, ver: string, bytes: number): WebGLTexture {
+    const { gl } = this;
+    let e = this.mediaTex.get(key);
+    if (e) { this.mediaTex.delete(key); this.mediaTex.set(key, e); } // LRU touch
+    if (!e) {
+      const tex = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]] as const) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      e = { tex, ver: '', bytes }; this.mediaTex.set(key, e);
+    }
+    if (e.ver !== ver) {
+      gl.bindTexture(gl.TEXTURE_2D, e.tex);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      e.ver = ver;
+    }
+    let total = 0; for (const v of this.mediaTex.values()) total += v.bytes;
+    for (const [k, v] of this.mediaTex) { // evict oldest until under budget (never the one just used)
+      if (total <= this.mediaBudget || k === key) break;
+      gl.deleteTexture(v.tex); this.mediaTex.delete(k); total -= v.bytes;
+    }
+    return e.tex;
+  }
+
   // ---- layer rendering ----------------------------------------------------------------------------------
 
   private worldScale(m: Mat, k: number) { return Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) * k || 1; }
@@ -363,6 +392,15 @@ export class GLRenderer {
       this.tex(0, this.upload('rasterTex', ras.canvas));
       gl.useProgram(p.p); gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, op); gl.uniform1i(p.u.u_decode!, this.linear ? 1 : 0);
       this.quad(p, [ras.w, 0, 0, ras.h, ras.x, ras.y], [1, 1], res, 0);
+    } else if ((l.type === 'image' || l.type === 'video') && l.media) {
+      let src: TexImageSource | null = null, ver = 'i', w = 0, h = 0;
+      if (l.type === 'image') { const bm = imageFor(l.media.asset); if (bm) { src = bm; w = bm.width; h = bm.height; } }
+      else { const el = videoFor(l.media.asset); if (el) { src = el; ver = `${el.currentTime}`; w = el.videoWidth; h = el.videoHeight; } }
+      if (!src || !w) return;
+      const p = this.progs.tex, tex = this.mediaTexture(l.media.asset, src, ver, w * h * 4);
+      this.tex(0, tex);
+      gl.useProgram(p.p); gl.uniform1i(p.u.u_tex!, 0); gl.uniform1f(p.u.u_op!, op); gl.uniform1i(p.u.u_decode!, this.linear ? 1 : 0);
+      this.quad(p, r.world, l.size, res, 1 / this.worldScale(r.world, ctx.k));
     } else if (l.type === 'precomp' && l.precomp) {
       const comp = ctx.comps[l.precomp.comp];
       if (!comp || ctx.depth >= MAX_DEPTH) return;

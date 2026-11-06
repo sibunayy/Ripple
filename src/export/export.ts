@@ -5,6 +5,7 @@ import { Zip, ZipPassThrough } from 'fflate';
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
 import { GLRenderer } from '../render/gl';
 import { workRange, type Project } from '../model/project';
+import { prepareMedia } from '../render/media';
 
 export type ExportKind = 'mp4' | 'png-seq' | 'png';
 export interface ExportOptions {
@@ -33,6 +34,9 @@ export class FrameSource {
     this.renderer = new GLRenderer(this.canvas);
     this.renderer.resize(this.width, this.height);
   }
+  /** Make media (images, video frames) drawable at frame t. Await before `render`. */
+  prepare(t: number) { return prepareMedia(this.p.layers, this.p.comps, t, this.p.settings.fps); }
+  dispose() { this.canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext(); }
   /** Render frame `t` into `canvas` (valid until the next call). */
   render(t: number) {
     const { settings: s, layers, comps } = this.p;
@@ -46,6 +50,7 @@ const toPNG = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob
 
 export async function exportPNG(p: Project, o: ExportOptions): Promise<ExportResult> {
   const t0 = performance.now(), src = new FrameSource(p, o.scale), f = o.frame ?? 0;
+  await src.prepare(f);
   const blob = await toPNG(src.render(f));
   return { blob, name: `${safe(p.name)}-${String(f).padStart(5, '0')}.png`, mime: 'image/png', frames: 1, ms: performance.now() - t0 };
 }
@@ -56,6 +61,7 @@ export async function exportPNGSequence(p: Project, o: ExportOptions): Promise<E
   const zip = new Zip((err, chunk) => { if (err) throw err; parts.push(chunk as Uint8Array<ArrayBuffer>); });
   for (let f = a; f < b; f++) {
     if (o.signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+    await src.prepare(f);
     const png = new Uint8Array(await (await toPNG(src.render(f))).arrayBuffer());
     const entry = new ZipPassThrough(`${safe(p.name)}_${String(f).padStart(5, '0')}.png`);
     zip.add(entry); entry.push(png, true);
@@ -88,6 +94,7 @@ export async function exportMP4(p: Project, o: ExportOptions): Promise<ExportRes
   for (let f = a; f < b; f++) {
     if (o.signal?.aborted) { enc.close(); throw new DOMException('Export cancelled', 'AbortError'); }
     if (encErr) throw encErr;
+    await src.prepare(f);
     const frame = new VideoFrame(src.render(f), { timestamp: Math.round(((f - a) * 1e6) / fps), duration: Math.round(1e6 / fps) });
     enc.encode(frame, { keyFrame: (f - a) % keyEvery === 0 });
     frame.close();

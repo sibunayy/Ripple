@@ -33,6 +33,8 @@ export type MatteMode = 'alpha' | 'alphaInv' | 'luma' | 'lumaInv';
 export interface Matte { layer: string; mode: MatteMode }
 /** One effect in a layer's stack. Parameters are animatable props `fx:<id>:<param>`; `data` holds non-animatable state (curve points). */
 export interface Effect { id: string; type: string; enabled: boolean; data?: unknown }
+/** Image/video layers reference a content-addressed asset (Project.assets). Video: `start` = source offset (s), `speed` = playback rate. */
+export interface MediaRef { asset: string; start: number; speed: number }
 export interface PrecompRef { comp: string; offset: number }
 
 export interface GradStop { at: number; c: ColorRGBA }
@@ -60,7 +62,7 @@ export interface TextContent {
 export interface Layer {
   id: string;
   name: string;
-  type: 'solid' | 'null' | 'shape' | 'text' | 'precomp' | 'adjustment';
+  type: 'solid' | 'null' | 'shape' | 'text' | 'precomp' | 'adjustment' | 'image' | 'video';
   parent?: string;
   in: number; // frames, inclusive
   out: number; // frames, exclusive
@@ -79,6 +81,7 @@ export interface Layer {
   clip?: boolean;
   effects?: Effect[];
   precomp?: PrecompRef;
+  media?: MediaRef;
 }
 
 export const DEFAULT_EASE: Ease = [0.42, 0, 0.58, 1];
@@ -91,7 +94,7 @@ const PALETTE: ColorRGBA[] = [
 export function createLayer(type: Layer['type'], s: ProjectSettings, index: number, name?: string): Layer {
   const full = type === 'solid' || type === 'adjustment' || type === 'precomp';
   const size: Vec2 = full ? [s.width, s.height] : [100, 100];
-  const label = { solid: 'Solid', null: 'Null', adjustment: 'Adjustment', precomp: 'Precomp', shape: 'Shape', text: 'Text' }[type];
+  const label = { solid: 'Solid', null: 'Null', adjustment: 'Adjustment', precomp: 'Precomp', shape: 'Shape', text: 'Text', image: 'Image', video: 'Video' }[type];
   return {
     id: newId(),
     name: name ?? `${label} ${index + 1}`,

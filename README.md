@@ -2,7 +2,7 @@
 
 A lightweight motion-graphics editor that installs as a PWA on iPad (tuned for Apple M1). See [spec.md](spec.md) for the full design and [plan.md](plan.md) for the M4–M9 roadmap.
 
-**Status:** M5 — 29 effects with fused shaders, curves, linear-light compositing, 22 animation presets (+ user presets). Earlier: M4.5 — export (MP4/PNG sequence/PNG). Earlier: M4 — blend modes, masks, track mattes, precomps, adjustment layers, transform handles + snapping. Earlier: M3 — shapes (rectangle, ellipse, polygon, star, line, pen with node editing), fill/stroke/gradients, trim paths, repeater, text layers with font import. Earlier: M2 — dope sheet, graph editor, 30-curve easing library, markers, work area, copy/paste keys. Earlier: M1 — document model with undo/redo, WebGL2 renderer, viewer (pinch zoom/pan, select, drag), layers panel, inspector with keyframes, timeline, playback.
+**Status:** M6 — image/SVG/video import, asset manager, thumbnails. Earlier: M5 — 29 effects with fused shaders, curves, linear-light compositing, 22 animation presets (+ user presets). Earlier: M4.5 — export (MP4/PNG sequence/PNG). Earlier: M4 — blend modes, masks, track mattes, precomps, adjustment layers, transform handles + snapping. Earlier: M3 — shapes (rectangle, ellipse, polygon, star, line, pen with node editing), fill/stroke/gradients, trim paths, repeater, text layers with font import. Earlier: M2 — dope sheet, graph editor, 30-curve easing library, markers, work area, copy/paste keys. Earlier: M1 — document model with undo/redo, WebGL2 renderer, viewer (pinch zoom/pan, select, drag), layers panel, inspector with keyframes, timeline, playback.
 
 ## Develop
 

@@ -14,6 +14,11 @@ import { reparent } from '../eval/evaluate';
 import { copyKeys, deleteKeys, moveKeys, nextKeyTime, pasteKeys, pruneRefs, setEaseOnKeys, setKeyValue, type ClipEntry, type KeyRef } from '../anim/keys';
 import type { Ease } from '../model/layer';
 import { deleteProject, listProjects, loadProject, saveProject, type ProjectMeta } from '../io/store';
+import { importAssetFile } from '../io/assets';
+import { svgToLayers } from '../io/svg';
+import { releaseMedia } from '../render/media';
+import { makeThumb } from '../io/thumbs';
+import type { AssetMeta } from '../model/project';
 
 export const library = signal<ProjectMeta[]>([]);
 export const current = signal<Project | null>(null);
@@ -336,6 +341,64 @@ export function toggleStopwatch(id: string, prop: PropKey) {
 
 export const valueAt = (l: Layer, prop: PropKey, t = frame()) => evalProp(propOf(l, prop) as Prop<never>, t) as number | Vec2;
 
+// ---- media -------------------------------------------------------------------------------------------------
+
+/** Transient message shown as a toast (import errors/summaries). */
+export const notice = signal('');
+const say = (m: string) => { notice.value = m; setTimeout(() => { if (notice.value === m) notice.value = ''; }, 6000); };
+
+function mediaLayer(meta: AssetMeta, s: Project['settings'], index: number): Layer {
+  const kind = meta.kind === 'video' ? 'video' : 'image';
+  const fit = Math.min(100, (100 * s.width) / meta.width, (100 * s.height) / meta.height);
+  const l = createLayer(kind, s, index, meta.name.replace(/\.[^.]+$/, '') || kind);
+  l.size = [meta.width, meta.height];
+  l.transform.anchor = { value: [meta.width / 2, meta.height / 2] };
+  l.transform.scale = { value: [fit, fit] };
+  l.media = { asset: meta.hash, start: 0, speed: 1 };
+  if (kind === 'video' && meta.duration) l.out = Math.max(1, Math.min(s.duration, Math.round(meta.duration * s.fps)));
+  return l;
+}
+
+/** Add an already-imported asset as a layer. */
+export function addAssetLayer(meta: AssetMeta) {
+  const p = current.peek(); if (!p) return;
+  const layer = mediaLayer(meta, p.settings, p.layers.length);
+  commit('Add media', (q) => ({ ...q, assets: { ...q.assets, [meta.hash]: meta }, layers: [layer, ...q.layers] }));
+  selection.value = [layer.id];
+}
+
+/** Import picked/dropped files: images, SVG (vector shapes by default) and video. */
+export async function importMedia(files: File[], svgAsVector?: boolean) {
+  for (const file of files) {
+    try {
+      const meta = await importAssetFile(file);
+      const p = current.peek(); if (!p) return;
+      if (meta.kind === 'svg') {
+        const vector = svgAsVector ?? confirm(`Import “${meta.name}” as editable vector shapes?\n\nOK = shapes · Cancel = flat image`);
+        if (vector) {
+          const r = svgToLayers(await file.text(), p.settings, p.layers.length);
+          if (!r.layers.length) throw new Error('No drawable shapes were found in this SVG.');
+          commit('Import SVG', (q) => ({ ...q, layers: [...r.layers, ...q.layers] }));
+          selection.value = r.layers.map((l) => l.id);
+          if (r.skipped.length) say(`Imported ${r.layers.length} shapes. Not supported yet: ${r.skipped.join(', ')}.`);
+          continue;
+        }
+      }
+      addAssetLayer(meta);
+    } catch (e) { say((e as Error).message); }
+  }
+}
+
+export const editMedia = (id: string, patch: Partial<NonNullable<Layer['media']>>) =>
+  editLayer(id, 'Edit media', (l) => (l.media ? { ...l, media: { ...l.media, ...patch } } : l), `media:${id}`);
+
+/** Remove an asset entry from the project (the stored file stays — other projects may share it). */
+export const removeAsset = (hash: string) => commit('Remove asset', (p) => { const a = { ...p.assets }; delete a[hash]; return { ...p, assets: a }; });
+export const assetUsage = (p: Project, hash: string) => {
+  const all = [p.layers, ...Object.values(p.comps).map((c) => c.layers)].flat();
+  return all.filter((l) => l.media?.asset === hash).length;
+};
+
 // ---- shapes & text -------------------------------------------------------------------------------
 
 /** Replace a layer through a pure function (shape/text content edits). */
@@ -489,6 +552,8 @@ export async function openProject(id: string): Promise<void> {
 export async function closeProject(): Promise<void> {
   while (stack.length) exitComp();
   await flush();
+  try { await makeThumb(rootProject()); } catch { /* thumbnails are best-effort */ }
+  releaseMedia();
   current.value = null;
   history.clear();
   await refreshLibrary();

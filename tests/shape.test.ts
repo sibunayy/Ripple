@@ -173,10 +173,10 @@ describe('blend reference', () => {
     expect(compositePx('normal', [1, 0, 0, 1], [0, 0, 1, 1])).toEqual([1, 0, 0, 1]);
     expect(compositePx('multiply', [0, 0, 0, 0], [0.2, 0.4, 0.6, 1])).toEqual([0.2, 0.4, 0.6, 1]);
   });
-  it('migrate adds comps and bumps to v2', () => {
+  it('migrate adds comps/assets and bumps to v3', () => {
     const old = { ...createProject(), v: 1 } as never as Record<string, unknown>;
     delete old.comps;
     const m = migrate(old as never);
-    expect(m.v).toBe(2); expect(m.comps).toEqual({});
+    expect(m.v).toBe(3); expect(m.comps).toEqual({}); expect(m.assets).toEqual({});
   });
 });

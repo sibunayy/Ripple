@@ -133,3 +133,13 @@ export async function loadPresetRecords(): Promise<string[]> {
     });
   } finally { d.close(); }
 }
+
+// ---- generic blob store (assets, thumbnails) ---------------------------------------------------------------------
+
+export const kvPut = (key: string, value: Blob | string): Promise<unknown> => tx(BLOBS, 'readwrite', (s) => s.put(value, key));
+export const kvGet = <T = Blob | string>(key: string): Promise<T | undefined> => tx<T | undefined>(BLOBS, 'readonly', (s) => s.get(key));
+export const kvDel = (key: string): Promise<unknown> => tx(BLOBS, 'readwrite', (s) => s.delete(key));
+export const opfsAvailable = hasOPFS;
+export async function opfsSub(name: string): Promise<FileSystemDirectoryHandle> {
+  return (await navigator.storage.getDirectory()).getDirectoryHandle(name, { create: true });
+}
