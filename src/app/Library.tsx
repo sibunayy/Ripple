@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import { loadThumb } from '../io/thumbs';
-import { backupProject, importBundleFile, notice, duplicateProject, library, newProject, openProject, removeProject } from './state';
+import { importLottieFile, backupProject, importBundleFile, notice, duplicateProject, library, newProject, openProject, removeProject } from './state';
 
 function Thumb({ id, modified, label, ratio, onOpen }: { id: string; modified: number; label: string; ratio: string; onOpen: () => void }) {
   const [url, setUrl] = useState('');
@@ -33,6 +33,7 @@ export function Library() {
       <header>
         <h1>RippleFlow</h1>
         <div class="row">
+          <label class="btn filebtn">Import Lottie…<input type="file" accept=".json,.lottie,application/json" hidden onChange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void importLottieFile(f); (e.target as HTMLInputElement).value = ''; }} /></label>
           <label class="btn filebtn">Import .ripple…<input type="file" accept=".ripple,application/zip" hidden onChange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void importBundleFile(f); (e.target as HTMLInputElement).value = ''; }} /></label>
           <button class="btn primary" onClick={() => void newProject()}>＋ New project</button>
         </div>

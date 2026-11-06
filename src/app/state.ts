@@ -622,6 +622,14 @@ export async function importBundleFile(file: File) {
     say(r.warnings.length ? `Imported “${r.project.name}” with warnings: ${r.warnings.join('; ')}` : `Imported “${r.project.name}”.`);
   } catch (e) { say((e as Error).message); }
 }
+export async function importLottieFile(file: File) {
+  try {
+    const { importLottieBlob } = await import('../lottie/file');
+    const r = await importLottieBlob(file);
+    await saveProject(r.project); await refreshLibrary();
+    say(r.report.length ? `Imported “${r.project.name}”. ${r.report.length} note${r.report.length > 1 ? 's' : ''}: ${r.report.slice(0, 3).map((x) => x.msg).join(' · ')}${r.report.length > 3 ? ' …' : ''}` : `Imported “${r.project.name}”.`);
+  } catch (e) { say((e as Error).message); }
+}
 export async function backupProject(id: string) {
   const p = await loadProject(id); if (!p) return;
   downloadBlob(await buildBundle(p), `${p.name.replace(/[^\w.-]+/g, '_') || 'project'}.ripple`);

@@ -19,7 +19,7 @@ const MAX_BUFFER = 2560; // longest side of the preview buffer; the canvas is CS
 const MIN_ZOOM = 0.05, MAX_ZOOM = 16;
 interface View { zoom: number; x: number; y: number; fit: boolean }
 
-declare global { interface Window { __ripple?: { renderer?: GLRenderer; doc?: () => import('../model/project').Project } } }
+declare global { interface Window { __ripple?: { renderer?: GLRenderer; doc?: () => import('../model/project').Project; load?: (p: import('../model/project').Project) => void; lottie?: () => Promise<unknown> } } }
 
 export function Viewer() {
   const wrap = useRef<HTMLDivElement>(null);
@@ -50,7 +50,7 @@ export function Viewer() {
   useEffect(() => {
     let r: GLRenderer;
     try { r = new GLRenderer(canvas.current!); } catch (e) { setError(String((e as Error).message)); return; }
-    renderer.current = r; window.__ripple = { renderer: r, doc: () => current.peek()! };
+    renderer.current = r; window.__ripple = { renderer: r, doc: () => current.peek()!, load: (p) => { current.value = p; }, lottie: async () => (await (await import('../lottie/export')).exportLottie(current.peek()!)).json };
     let queued = 0;
     const draw = () => {
       queued = 0;

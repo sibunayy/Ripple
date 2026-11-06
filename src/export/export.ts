@@ -10,7 +10,7 @@ import { workRange, type Project } from '../model/project';
 import { prepareMedia } from '../render/media';
 import { buildBundle } from '../io/bundle';
 
-export type ExportKind = 'mp4' | 'webm' | 'gif' | 'png-seq' | 'jpeg-seq' | 'webp-seq' | 'png' | 'jpeg' | 'webp' | 'ripple';
+export type ExportKind = 'lottie' | 'mp4' | 'webm' | 'gif' | 'png-seq' | 'jpeg-seq' | 'webp-seq' | 'png' | 'jpeg' | 'webp' | 'ripple';
 export const KIND_INFO: Record<ExportKind, { label: string; ext: string; mime: string; video?: boolean; seq?: boolean; still?: boolean; alpha?: boolean }> = {
   mp4: { label: 'MP4 video (H.264)', ext: 'mp4', mime: 'video/mp4', video: true },
   webm: { label: 'WebM video (VP9)', ext: 'webm', mime: 'video/webm', video: true },
@@ -21,6 +21,7 @@ export const KIND_INFO: Record<ExportKind, { label: string; ext: string; mime: s
   png: { label: 'Current frame (PNG)', ext: 'png', mime: 'image/png', still: true, alpha: true },
   jpeg: { label: 'Current frame (JPEG)', ext: 'jpg', mime: 'image/jpeg', still: true },
   webp: { label: 'Current frame (WebP)', ext: 'webp', mime: 'image/webp', still: true, alpha: true },
+  lottie: { label: 'Lottie animation (.json)', ext: 'json', mime: 'application/json' },
   ripple: { label: 'Project backup (.ripple)', ext: 'ripple', mime: 'application/zip' },
 };
 
@@ -35,7 +36,7 @@ export interface ExportOptions {
   onProgress?: (done: number, total: number) => void;
   signal?: AbortSignal;
 }
-export interface ExportResult { blob: Blob; name: string; mime: string; frames: number; ms: number }
+export interface ExportResult { blob: Blob; name: string; mime: string; frames: number; ms: number; notes?: string[] }
 
 const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
 const sleep0 = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -174,6 +175,13 @@ async function exportGIF(p: Project, o: ExportOptions): Promise<ExportResult> {
 
 export async function runExport(p: Project, o: ExportOptions): Promise<ExportResult> {
   const info = KIND_INFO[o.kind];
+  if (o.kind === 'lottie') {
+    const t0 = performance.now();
+    const { exportLottie } = await import('../lottie/export');
+    const { getAssetBlob } = await import('../io/assets');
+    const r = await exportLottie(p, { assetData: async (h) => { const b = await getAssetBlob(h); return b ? { mime: b.type, bytes: new Uint8Array(await b.arrayBuffer()) } : null; } });
+    return { blob: new Blob([JSON.stringify(r.json)], { type: 'application/json' }), name: `${safe(p.name)}.json`, mime: 'application/json', frames: 0, ms: performance.now() - t0, notes: r.report.map((x) => x.msg) };
+  }
   if (o.kind === 'ripple') { const t0 = performance.now(), blob = await buildBundle(p); return { blob, name: `${safe(p.name)}.ripple`, mime: 'application/zip', frames: 0, ms: performance.now() - t0 }; }
   if (info.still) return exportStill(p, o);
   if (info.seq) return exportSequence(p, o);
