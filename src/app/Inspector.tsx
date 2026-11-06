@@ -1,5 +1,5 @@
 import { useRef } from 'preact/hooks';
-import { activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
+import { editMedia, activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
 import { nodeSel } from './tools';
 import { NumField } from '../ui/NumField';
 import { hasKeyAt, isAnimated } from '../anim/interp';
@@ -102,6 +102,16 @@ export function Inspector() {
         ))}
         <div class="seg"><button class="btn sm" onClick={() => addMask(l.id, 'rect')}>＋ Rectangle</button><button class="btn sm" onClick={() => addMask(l.id, 'ellipse')}>＋ Ellipse</button></div>
       </Section>
+      {l.media && (
+        <Section title={l.type === 'video' ? 'Video' : 'Image'}>
+          <span class="hint">{p.assets[l.media.asset]?.name ?? 'Missing asset'}</span>
+          {l.type === 'video' && <>
+            <div class="prop"><span class="pname">Source start (s)</span><span /><div class="fields"><NumField label="" value={l.media.start} step={0.1} min={0} onChange={(v) => editMedia(l.id, { start: v })} /></div></div>
+            <div class="prop"><span class="pname">Speed %</span><span /><div class="fields"><NumField label="" value={l.media.speed * 100} step={5} min={6.25} max={1600} onChange={(v) => editMedia(l.id, { speed: v / 100 })} /></div></div>
+            <p class="hint">Audio is not part of v1: video plays muted and exports without sound.</p>
+          </>}
+        </Section>
+      )}
       {l.type === 'solid' && (
         <label class="prop color">
           <span class="pname">Colour</span>

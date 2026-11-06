@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
-  activeComp, compPath, exitComp, addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
+  notice, activeComp, compPath, exitComp, addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
   keySel, moveSelectedKeys, pasteKeyframes, playhead, redo, rename, saveState, selection, setSettings, setWorkArea, undo, undoLabel,
 } from './state';
 import { cancelPen, deleteSelectedNode, finishPen, nodeSel, penDraft, setTool, TOOLS, tool } from './tools';
@@ -13,9 +13,10 @@ import { Inspector } from './Inspector';
 import { ExportDialog } from './ExportDialog';
 import { EffectsPanel } from './EffectsPanel';
 import { PresetsPanel } from './PresetsPanel';
+import { AssetsPanel } from './AssetsPanel';
 import { FPS_PRESETS, SIZE_PRESETS, fromHex, timecode, toHex } from '../model/project';
 
-type Tab = 'inspector' | 'effects' | 'presets';
+type Tab = 'inspector' | 'effects' | 'presets' | 'assets';
 const panels = signal({ left: true, right: true, timeline: true });
 const SAVE_LABEL = { saved: 'Saved', dirty: 'Unsaved…', saving: 'Saving…', error: 'Save failed' } as const;
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) && (t as HTMLInputElement).type !== 'color';
@@ -101,15 +102,16 @@ export function Editor() {
 
       <aside class="panel right">
         <nav class="tabs" role="tablist">
-          {(['inspector', 'effects', 'presets'] as Tab[]).map((t) => (
+          {(['inspector', 'effects', 'presets', 'assets'] as Tab[]).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
           ))}
         </nav>
-        {tab === 'inspector' ? <Inspector /> : tab === 'effects' ? <EffectsPanel /> : <PresetsPanel />}
+        {tab === 'inspector' ? <Inspector /> : tab === 'effects' ? <EffectsPanel /> : tab === 'presets' ? <PresetsPanel /> : <AssetsPanel />}
       </aside>
 
       <section class="timeline"><Timeline /></section>
 
+      {notice.value && <div class="toast" role="status"><span>{notice.value}</span><button class="btn sm" onClick={() => (notice.value = '')}>OK</button></div>}
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>

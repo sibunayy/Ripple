@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { effect, signal } from '@preact/signals';
-import { addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText } from './state';
+import { importMedia, addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText } from './state';
 import { editingText, finishPen, nodeSel, penDraft, setTool, tool, TOOLS, type Tool } from './tools';
 import { distToPoly, flatten, insertNode, moveHandle, moveNode, nearestOnPath, node as mkNode } from '../shape/path';
 import { layoutText, fontString, textStyle } from '../text/metrics';
 import { layerBox } from '../shape/geometry';
 import { css } from '../render/raster';
 import { fontRev } from '../text/fonts';
+import { mediaRev, syncVideos } from '../render/media';
+import { playing } from './playback';
 import { corners, evaluate, hitTest } from '../eval/evaluate';
 import { evalProp, isAnimated } from '../anim/interp';
 import { apply, invert, type Mat } from '../eval/affine';
@@ -17,7 +19,7 @@ const MAX_BUFFER = 2560; // longest side of the preview buffer; the canvas is CS
 const MIN_ZOOM = 0.05, MAX_ZOOM = 16;
 interface View { zoom: number; x: number; y: number; fit: boolean }
 
-declare global { interface Window { __ripple?: { renderer?: GLRenderer } } }
+declare global { interface Window { __ripple?: { renderer?: GLRenderer; doc?: () => import('../model/project').Project } } }
 
 export function Viewer() {
   const wrap = useRef<HTMLDivElement>(null);
@@ -48,7 +50,7 @@ export function Viewer() {
   useEffect(() => {
     let r: GLRenderer;
     try { r = new GLRenderer(canvas.current!); } catch (e) { setError(String((e as Error).message)); return; }
-    renderer.current = r; window.__ripple = { renderer: r };
+    renderer.current = r; window.__ripple = { renderer: r, doc: () => current.peek()! };
     let queued = 0;
     const draw = () => {
       queued = 0;
@@ -58,11 +60,12 @@ export function Viewer() {
       r.resize(Math.round(width * k), Math.round(height * k));
       // Render in comp space; scale to the buffer via the resolution uniform.
       const t = playhead.peek();
+      syncVideos(p.layers, p.comps, t, p.settings.fps, playing.peek());
       r.render(p.layers, { width, height, bg, t, comps: p.comps, fps: p.settings.fps, linear: p.settings.linearLight });
     };
     const schedule = () => { if (!queued) queued = requestAnimationFrame(draw); };
     r.onRestore = schedule;
-    const stop = effect(() => { current.value; playhead.value; fontRev.value; schedule(); });
+    const stop = effect(() => { current.value; playhead.value; fontRev.value; mediaRev.value; playing.value; schedule(); });
     return () => { stop(); cancelAnimationFrame(queued); renderer.current = null; };
   }, []);
 
@@ -315,7 +318,7 @@ export function Viewer() {
   const k = Math.min(1, MAX_BUFFER / Math.max(s.width, s.height));
 
   return (
-    <div class="viewport" ref={wrap} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+    <div class="viewport" ref={wrap} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length) void importMedia(fs); }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
       <div class="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
         <canvas ref={canvas} width={Math.round(s.width * k)} height={Math.round(s.height * k)} aria-label="Composition viewer" />
         <Overlay zoom={view.zoom} />

@@ -13,13 +13,14 @@ export interface ProjectSettings {
   linearLight: boolean;
 }
 
+export interface AssetMeta { hash: string; name: string; kind: 'image' | 'video' | 'svg'; mime: string; width: number; height: number; duration?: number; size: number }
 export interface Marker { id: string; t: number; name: string }
 
 /** A nested composition (precomp target). The root comp is `Project.layers` + `Project.settings`. */
 export interface Comp { id: string; name: string; width: number; height: number; fps: number; duration: number; layers: Layer[] }
 
 export interface Project {
-  v: 2;
+  v: 3;
   id: string;
   name: string;
   created: number;
@@ -32,6 +33,8 @@ export interface Project {
   workArea: [number, number] | null;
   /** Nested comps by id (precomps). */
   comps: Record<string, Comp>;
+  /** Imported media by content hash. */
+  assets: Record<string, AssetMeta>;
 }
 
 export const SIZE_PRESETS = [
@@ -54,7 +57,7 @@ export const newId = (): string => {
 
 export function createProject(name = 'Untitled', now = Date.now()): Project {
   return {
-    v: 2,
+    v: 3,
     id: newId(),
     name,
     created: now,
@@ -72,6 +75,7 @@ export function createProject(name = 'Untitled', now = Date.now()): Project {
     markers: [],
     workArea: null,
     comps: {},
+    assets: {},
   };
 }
 
@@ -106,7 +110,7 @@ export const timecode = (frames: number, fps: number): string => {
 };
 
 /** Fill in fields missing from projects saved by older versions. */
-export const migrate = (p: Project): Project => ({ ...p, v: 2, layers: p.layers ?? [], markers: p.markers ?? [], workArea: p.workArea ?? null, comps: p.comps ?? {} });
+export const migrate = (p: Project): Project => ({ ...p, v: 3, layers: p.layers ?? [], markers: p.markers ?? [], workArea: p.workArea ?? null, comps: p.comps ?? {}, assets: p.assets ?? {} });
 
 /** Effective work range [in, out), clamped to the current duration. */
 export function workRange(p: Pick<Project, 'workArea' | 'settings'>): [number, number] {
