@@ -54,8 +54,28 @@ async function askPersist() {
   try { await navigator.storage?.persist?.(); } catch { /* best effort */ }
 }
 
+// Version snapshots: at most one per minute, newest five, kept in IndexedDB. Used for restore and corruption recovery.
+const lastJson = new Map<string, string>(), lastSnap = new Map<string, number>();
+export interface Snapshot { t: number; json: string }
+const SNAP_EVERY = 60_000, SNAP_KEEP = 5;
+async function readSnaps(id: string): Promise<Snapshot[]> {
+  try { return JSON.parse(((await tx<string | undefined>(BLOBS, 'readonly', (s) => s.get(`snaps:${id}`))) as string | undefined) ?? '[]') as Snapshot[]; } catch { return []; }
+}
+async function pushSnapshot(id: string, json: string) {
+  const arr = (await readSnaps(id)).filter((s) => s.json !== json);
+  arr.unshift({ t: Date.now(), json });
+  await tx(BLOBS, 'readwrite', (s) => s.put(JSON.stringify(arr.slice(0, SNAP_KEEP)), `snaps:${id}`));
+}
+export async function listSnapshots(id: string): Promise<{ t: number; size: number }[]> { return (await readSnaps(id)).map((s) => ({ t: s.t, size: s.json.length })); }
+export async function getSnapshot(id: string, i: number): Promise<Project | null> { const s = (await readSnaps(id))[i]; return s ? migrate(JSON.parse(s.json) as Project) : null; }
+/** Set when the last loadProject had to fall back to a snapshot because the file was unreadable. */
+export let lastLoadRecovered = false;
+
 export async function saveProject(p: Project): Promise<void> {
   const json = JSON.stringify(p);
+  const prev = lastJson.get(p.id), now = Date.now();
+  if (prev && prev !== json && now - (lastSnap.get(p.id) ?? 0) > SNAP_EVERY) { lastSnap.set(p.id, now); try { await pushSnapshot(p.id, prev); } catch { /* best effort */ } }
+  lastJson.set(p.id, json);
   if (hasOPFS()) {
     const f = await (await dir()).getFileHandle(`${p.id}.json`, { create: true });
     const w = await f.createWritable();
@@ -79,7 +99,13 @@ export async function loadProject(id: string): Promise<Project | null> {
   } else {
     json = await tx<string | undefined>(BLOBS, 'readonly', (s) => s.get(id));
   }
-  return json ? migrate(JSON.parse(json) as Project) : null;
+  lastLoadRecovered = false;
+  if (!json) return null;
+  try { const p = migrate(JSON.parse(json) as Project); lastJson.set(id, json); return p; }
+  catch {
+    for (const s of await readSnaps(id)) { try { const p = migrate(JSON.parse(s.json) as Project); lastLoadRecovered = true; lastJson.set(id, s.json); return p; } catch { /* next */ } }
+    return null;
+  }
 }
 
 export async function listProjects(): Promise<ProjectMeta[]> {

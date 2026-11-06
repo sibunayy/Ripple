@@ -13,7 +13,9 @@ import { evalProp, writeProp, toggleAnimated } from '../anim/interp';
 import { reparent } from '../eval/evaluate';
 import { copyKeys, deleteKeys, moveKeys, nextKeyTime, pasteKeys, pruneRefs, setEaseOnKeys, setKeyValue, type ClipEntry, type KeyRef } from '../anim/keys';
 import type { Ease } from '../model/layer';
-import { deleteProject, listProjects, loadProject, saveProject, type ProjectMeta } from '../io/store';
+import { deleteProject, getSnapshot, lastLoadRecovered, listProjects, loadProject, saveProject, type ProjectMeta } from '../io/store';
+import { importBundle, buildBundle } from '../io/bundle';
+import { downloadBlob } from '../io/download';
 import { importAssetFile } from '../io/assets';
 import { svgToLayers } from '../io/svg';
 import { releaseMedia } from '../render/media';
@@ -546,7 +548,30 @@ export async function newProject(): Promise<void> {
 
 export async function openProject(id: string): Promise<void> {
   const p = await loadProject(id);
-  if (p) open(p);
+  if (!p) return;
+  open(p);
+  if (lastLoadRecovered) say('The project file was damaged, so an earlier automatic version was opened.');
+}
+
+/** Replace the project with an earlier automatic snapshot (undoable). Only from the root comp. */
+export async function restoreVersion(index: number) {
+  const cur = current.peek(); if (!cur || stack.length) return;
+  const snap = await getSnapshot(cur.id, index); if (!snap) return;
+  commit('Restore version', () => ({ ...snap, id: cur.id, created: cur.created, modified: Date.now() }));
+  selection.value = []; keySel.value = [];
+}
+
+/** Library actions: import a .ripple bundle / back up a project without opening it. */
+export async function importBundleFile(file: File) {
+  try {
+    const r = await importBundle(file);
+    await refreshLibrary();
+    say(r.warnings.length ? `Imported “${r.project.name}” with warnings: ${r.warnings.join('; ')}` : `Imported “${r.project.name}”.`);
+  } catch (e) { say((e as Error).message); }
+}
+export async function backupProject(id: string) {
+  const p = await loadProject(id); if (!p) return;
+  downloadBlob(await buildBundle(p), `${p.name.replace(/[^\w.-]+/g, '_') || 'project'}.ripple`);
 }
 
 export async function closeProject(): Promise<void> {

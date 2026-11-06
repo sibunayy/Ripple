@@ -129,8 +129,8 @@ export class GLRenderer {
   lost = false;
   stats = { passes: 0, rts: 0 };
 
-  constructor(private canvas: HTMLCanvasElement) {
-    const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+  constructor(private canvas: HTMLCanvasElement, opts: { alpha?: boolean } = {}) {
+    const gl = canvas.getContext('webgl2', { antialias: false, alpha: !!opts.alpha, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     if (!gl) throw new Error('WebGL2 is not available');
     this.gl = gl;
     this.init();
