@@ -51,7 +51,9 @@ export interface ShapeContent {
   trim: boolean;
   repeater: boolean;
 }
+import type { TextAnimator } from '../text/animate';
 export interface TextContent {
+  animators?: TextAnimator[];
   text: string;
   font: string; // CSS family
   align: 'left' | 'center' | 'right';

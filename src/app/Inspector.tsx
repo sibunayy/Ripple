@@ -1,5 +1,7 @@
 import { useRef } from 'preact/hooks';
 import { ShaderEditor } from './ShaderEditor';
+import { TEMPLATES, type AnimShape, type AnimUnit } from '../text/animate';
+import { addTextAnimator, editAnimator, removeAnimator } from './state';
 import { parseUniforms } from '../render/shader';
 import { setShaderCode, editLayer, editMedia, activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
 import { nodeSel } from './tools';
@@ -182,6 +184,20 @@ export function Inspector() {
           <div class="seg" role="group" aria-label="Alignment">
             {(['left', 'center', 'right'] as const).map((a) => <button key={a} class="btn sm" aria-pressed={l.text!.align === a} onClick={() => editText(l.id, { align: a })}>{a}</button>)}
           </div>
+          <h3>Animators</h3>
+          <div class="chips">{TEMPLATES.map((tp) => <button key={tp.id} class="btn sm" onClick={() => addTextAnimator(l.id, tp.id)}>{tp.label}</button>)}<button class="btn sm" onClick={() => addTextAnimator(l.id, null)}>＋ Custom</button></div>
+          {(l.text.animators ?? []).map((a) => (
+            <div key={a.id} class="mask on">
+              <div class="seg"><strong class="fxname">{a.name}</strong>
+                <select aria-label="Animate by" value={a.unit} onChange={(e) => editAnimator(l.id, a.id, { unit: (e.target as HTMLSelectElement).value as AnimUnit })}><option value="chars">Characters</option><option value="words">Words</option><option value="lines">Lines</option></select>
+                <select aria-label="Selector shape" value={a.shape} onChange={(e) => editAnimator(l.id, a.id, { shape: (e.target as HTMLSelectElement).value as AnimShape })}>{(['square', 'ramp', 'triangle', 'round', 'smooth'] as const).map((s) => <option key={s} value={s}>{s}</option>)}</select>
+                <button class="btn sm danger" aria-label="Remove animator" onClick={() => removeAnimator(l.id, a.id)}>✕</button></div>
+              {num(`ta:${a.id}:start`, 'Start %', 1)}{num(`ta:${a.id}:end`, 'End %', 1)}{num(`ta:${a.id}:offset`, 'Offset %', 1)}
+              {vec(`ta:${a.id}:position`, 'Position')}{vec(`ta:${a.id}:scale`, 'Scale')}{num(`ta:${a.id}:rotation`, 'Rotation', 1)}{num(`ta:${a.id}:opacity`, 'Opacity', 1, 0, 100)}
+              <label class="check"><input type="checkbox" checked={!!a.colorOn} onChange={(e) => editAnimator(l.id, a.id, { colorOn: (e.target as HTMLInputElement).checked })} /> Colour</label>
+              {a.colorOn && colour(`ta:${a.id}:color`, 'Colour')}
+            </div>
+          ))}
           <div class="seg">
             <button class="btn sm" aria-pressed={l.text.bold} onClick={() => editText(l.id, { bold: !l.text!.bold })}><b>B</b></button>
             <button class="btn sm" aria-pressed={l.text.italic} onClick={() => editText(l.id, { italic: !l.text!.italic })}><i>I</i></button>

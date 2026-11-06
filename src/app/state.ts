@@ -7,6 +7,7 @@ import type { BlendMode } from '../render/blend';
 import { createEffect, paramKey, type Curves } from '../render/effects';
 import { GALLERY, parseUniforms, syncUniformProps } from '../render/shader';
 import { applyPreset, type Preset } from '../anim/presets';
+import { TEMPLATES, type AnimShape, type AnimUnit } from '../text/animate';
 import { maskProp } from '../render/masks';
 import { layerBox } from '../shape/geometry';
 import { shapePath } from '../shape/geometry';
@@ -193,6 +194,37 @@ export function setShaderCode(layerId: string, effectId: string | null, code: st
     return { ...l, shader: { code }, props: syncUniformProps(l.props, 'sh:', decls) };
   }, `shader:${layerId}:${effectId ?? ''}`);
 }
+
+const animatorProps = (id: string, start: number, end: number, p: Record<string, number | number[]>): Record<string, Prop<any>> => ({
+  [`ta:${id}:start`]: { value: start }, [`ta:${id}:end`]: { value: end }, [`ta:${id}:offset`]: { value: 0 },
+  [`ta:${id}:position`]: { value: p.position ?? [0, 0] }, [`ta:${id}:scale`]: { value: p.scale ?? [100, 100] },
+  [`ta:${id}:rotation`]: { value: p.rotation ?? 0 }, [`ta:${id}:opacity`]: { value: p.opacity ?? 100 },
+  [`ta:${id}:color`]: { value: [1, 0.4, 0.4, 1] },
+});
+
+/** Add a text animator from a template and key its offset so the window sweeps across the text (from the playhead). */
+export function addTextAnimator(layerId: string, templateId: string | null) {
+  const p = current.peek(); if (!p) return;
+  const tpl = templateId ? TEMPLATES.find((t) => t.id === templateId) : undefined;
+  const id = newId(), t0 = frame(), fps = p.settings.fps;
+  editLayer(layerId, 'Add text animator', (l) => {
+    if (!l.text) return l;
+    const n = Array.from(l.text.text.replace(/\n/g, '')).length;
+    const sec = tpl ? Math.max(tpl.minSeconds, n * tpl.secondsPer) : 1, frames = Math.max(1, Math.round(sec * fps));
+    const props = { ...l.props, ...animatorProps(id, tpl?.start ?? 0, tpl?.end ?? 100, tpl?.props ?? { opacity: 0 }) };
+    if (tpl) props[`ta:${id}:offset`] = { keys: [{ t: t0, v: -100 - tpl.end + tpl.start, ease: 'linear' as const }, { t: t0 + frames, v: 100, ease: 'linear' as const }] };
+    return { ...l, props, text: { ...l.text, animators: [...(l.text.animators ?? []), { id, name: tpl?.label ?? `Animator ${(l.text.animators?.length ?? 0) + 1}`, unit: tpl?.unit ?? 'chars', shape: tpl?.shape ?? 'ramp' }] } };
+  });
+  if (!expanded.peek().includes(layerId)) expanded.value = [...expanded.peek(), layerId];
+}
+export const editAnimator = (layerId: string, id: string, patch: { unit?: AnimUnit; shape?: AnimShape; colorOn?: boolean }) =>
+  editLayer(layerId, 'Edit text animator', (l) => (l.text ? { ...l, text: { ...l.text, animators: l.text.animators?.map((a) => (a.id === id ? { ...a, ...patch } : a)) } } : l));
+export const removeAnimator = (layerId: string, id: string) =>
+  editLayer(layerId, 'Remove text animator', (l) => {
+    if (!l.text) return l;
+    const props = Object.fromEntries(Object.entries(l.props ?? {}).filter(([k]) => !k.startsWith(`ta:${id}:`)));
+    return { ...l, props, text: { ...l.text, animators: (l.text.animators ?? []).filter((a) => a.id !== id) } };
+  });
 
 export function addShaderLayer() {
   const p = current.peek(); if (!p) return;

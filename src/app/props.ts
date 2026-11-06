@@ -17,6 +17,8 @@ export const propLabel = (k: PropKey, l?: Layer) => {
     const e = l?.effects?.find((x) => x.id === fx[1]), d = e && EFFECT_BY_TYPE.get(e.type);
     return d ? `${d.name} · ${d.params.find((q) => q.key === fx[2])?.label ?? fx[2]}` : k;
   }
+  const ta = /^ta:([^:]+):(\w+)$/.exec(k);
+  if (ta) { const a = l?.text?.animators?.find((x) => x.id === ta[1]); return `${a?.name ?? 'Animator'} · ${ta[2]}`; }
   const mk = /^mask:([^:]+):(\w+)$/.exec(k);
   if (mk) return `${l?.masks?.find((m) => m.id === mk[1])?.name ?? 'Mask'} ${mk[2]}`;
   return LABELS[k] ?? k;
