@@ -602,10 +602,11 @@ export async function newProject(): Promise<void> {
   await refreshLibrary();
 }
 
-export async function newFromTemplate(id: string): Promise<void> {
+export async function newFromTemplate(id: string, name?: string): Promise<void> {
   const { STARTERS } = await import('./templates');
   const t = STARTERS.find((x) => x.id === id); if (!t) return;
   const p = t.build();
+  if (name) p.name = name;
   await saveProject(p);
   open(p);
   await refreshLibrary();
