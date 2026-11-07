@@ -3,7 +3,7 @@
 import { evalProp } from '../anim/interp';
 import { compose, decompose, IDENT, invert, mul, apply, type Mat } from './affine';
 import { hitLayer, layerBox } from '../shape/geometry';
-import type { Layer, TransformKey, Vec2 } from '../model/layer';
+import { hasSolo, isShown, type Layer, type TransformKey, type Vec2 } from '../model/layer';
 
 export interface Resolved {
   layer: Layer;
@@ -31,11 +31,12 @@ export function evaluate(layers: readonly Layer[], t: number): Resolved[] {
     worldCache.set(l.id, w);
     return w;
   };
+  const anySolo = hasSolo(layers);
   return layers.map((layer) => ({
     layer,
     world: world(layer, 0),
     opacity: Math.min(1, Math.max(0, evalProp(layer.transform.opacity, t) / 100)),
-    active: layer.visible && t >= layer.in && t < layer.out,
+    active: isShown(layer, t, anySolo),
   }));
 }
 
@@ -48,7 +49,7 @@ export function corners(r: Resolved, t = 0): Vec2[] {
 /** Topmost active layer under (x, y) in comp coordinates. */
 export function hitTest(resolved: readonly Resolved[], x: number, y: number, t = 0, slop = 6): string | null {
   for (const r of resolved) {
-    if (!r.active) continue;
+    if (!r.active || r.layer.locked) continue;
     const inv = invert(r.world);
     if (!inv) continue;
     const [lx, ly] = apply(inv, x, y);

@@ -69,6 +69,12 @@ export interface Layer {
   in: number; // frames, inclusive
   out: number; // frames, exclusive
   visible: boolean;
+  /** Locked layers can't be picked or dragged on the canvas. */
+  locked?: boolean;
+  /** When any layer in the comp is soloed, only soloed layers render. */
+  solo?: boolean;
+  /** Shy layers are hidden from the timeline list while the Shy filter is on (still rendered). */
+  shy?: boolean;
   size: Vec2; // layer-space size in px (solid fill / null bounds)
   color: ColorRGBA; // solid fill (unused by null)
   transform: Transform;
@@ -87,6 +93,11 @@ export interface Layer {
   motionBlur?: boolean;
   shader?: { code: string };
 }
+
+/** Is the layer drawn at frame t, given the comp's solo state? */
+export const isShown = (l: Layer, t: number, anySolo: boolean): boolean =>
+  l.visible && (!anySolo || !!l.solo) && t >= l.in && t < l.out;
+export const hasSolo = (layers: readonly Layer[]): boolean => layers.some((l) => l.solo);
 
 export const DEFAULT_EASE: Ease = [0.42, 0, 0.58, 1];
 
