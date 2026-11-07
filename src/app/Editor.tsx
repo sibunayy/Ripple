@@ -32,6 +32,7 @@ function useShortcuts() {
       if (mod && k === 'z') { if (typing(e.target) && (e.target as HTMLInputElement).type !== 'number') return; e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
       if (mod && k === 's') { e.preventDefault(); void flush(); return; }
       if (typing(e.target)) return;
+      if (mod && k === 'a') { e.preventDefault(); selection.value = current.peek()!.layers.filter((l) => !l.locked).map((l) => l.id); return; }
       if (mod && k === 'd') { e.preventDefault(); duplicateLayers(selection.peek()); return; }
       if (mod && k === 'c' && keySel.peek().length) { e.preventDefault(); copySelectedKeys(); return; }
       if (mod && k === 'v') { e.preventDefault(); pasteKeyframes(); return; }

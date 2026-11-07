@@ -14,6 +14,8 @@
 | `⌘Z / ⇧⌘Z` | Undo / redo |
 | `⌘S` | Save now |
 | `⌘D` | Duplicate layer |
+| `⌘A` | Select all (unlocked) layers |
+| `Shift`+click / drag empty space | Add to selection / marquee select (viewer) |
 | `⌘C / ⌘V` | Copy / paste keyframes |
 | `⌘⇧ ← / →` | Nudge selected keyframes |
 | `Delete` | Delete keyframes, node or layer |
