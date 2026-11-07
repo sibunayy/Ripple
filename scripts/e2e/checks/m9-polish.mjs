@@ -58,7 +58,9 @@ export const checks = [{
     await page.click('button:has-text("Settings")');
     await page.selectOption('.dialog select >> nth=0', { label: '4K UHD (3840×2160)' });
     await page.fill('.dialog input[list=fps]', '60'); await page.press('.dialog input[list=fps]', 'Tab');
-    await page.evaluate(() => {});
+    await page.locator('.dialog input[list=fps]').blur(); // make sure the change event fires even if Tab was swallowed by the datalist
+    // The change event commits asynchronously; wait for it instead of reading once (flaky on slow CI runners).
+    await page.waitForFunction(() => { const s = window.__ripple.doc().settings; return s.width === 3840 && s.height === 2160 && s.fps === 60; }, null, { timeout: 5000 }).catch(() => undefined);
     const s = await page.evaluate(() => window.__ripple.doc().settings);
     if (s.width !== 3840 || s.height !== 2160 || s.fps !== 60) throw new Error('settings not applied: ' + JSON.stringify(s));
   },
