@@ -1,3 +1,4 @@
+import { UI } from '../ui.mjs';
 import { runExport } from './m45-export.mjs';
 import { readFileSync } from 'node:fs';
 
@@ -18,6 +19,7 @@ export const checks = [{
   name: 'dialogs trap focus: Tab cycles inside the export dialog',
   async run({ page }) {
     await page.click('button:has-text("Export")');
+    await page.waitForFunction(() => !!document.activeElement?.closest('.dialog')); // the dialog moves focus in after its first paint
     for (let i = 0; i < 25; i++) await page.keyboard.press('Tab');
     const inside = await page.evaluate(() => !!document.activeElement?.closest('.dialog'));
     if (!inside) throw new Error('focus escaped the dialog');
@@ -85,9 +87,9 @@ export const checks = [{
       return { id: p.id, json: JSON.stringify(window.__ripple.doc()), px: T.draw(window.__ripple.doc().layers, { w: 128, h: 128, t: 5 }, [[64, 34], [100, 100], [5, 5], [20, 24]]) };
     });
     await page.reload();
-    await page.waitForSelector('.library');
+    await page.waitForSelector(UI.library);
     await page.click('.card:has-text("Rich") .thumb');
-    await page.waitForSelector('.editor'); await page.waitForFunction(() => window.__ripple?.renderer);
+    await page.waitForSelector(UI.editor); await page.waitForFunction(() => window.__ripple?.renderer);
     const after = await page.evaluate(() => ({ json: JSON.stringify(window.__ripple.doc()), px: T.draw(window.__ripple.doc().layers, { w: 128, h: 128, t: 5 }, [[64, 34], [100, 100], [5, 5], [20, 24]]) }));
     const a = JSON.parse(before.json), b = JSON.parse(after.json);
     delete a.modified; delete b.modified;
@@ -102,10 +104,10 @@ export const checks = [{
     await page.close({ runBeforeUnload: false });
     const p2 = await ctx.newPage();
     await p2.goto(process.env.RF_URL ?? 'http://localhost:4179/Ripple/');
-    await p2.waitForSelector('.card');
+    await p2.waitForSelector(UI.card);
     await p2.locator('.card .thumb').first().click();
-    await p2.waitForSelector('.editor');
-    const n = await p2.locator('.tl-row.layer').count();
+    await p2.waitForSelector(UI.editor);
+    const n = await p2.locator(UI.layerRow).count();
     if (n !== 2) throw new Error('expected 2 layers after restore, got ' + n);
   },
 }, {
@@ -115,13 +117,13 @@ export const checks = [{
     await page.waitForTimeout(1500);
     await ctx.setOffline(true);
     await page.reload();
-    await page.waitForSelector('.library', { timeout: 15000 });
+    await page.waitForSelector(UI.library, { timeout: 15000 });
     await ctx.setOffline(false);
   },
 }, {
   name: 'presets on text and shape layers; a saved custom preset is reusable in another project (criterion 3)',
   async run({ page }) {
-    const st = await page.locator('.stage').boundingBox();
+    const st = await page.locator(UI.stage).boundingBox();
     await page.click('text=＋ Solid'); // gives the project something selectable
     await page.keyboard.press('r'); await page.mouse.move(st.x + 100, st.y + 100); await page.mouse.down(); await page.mouse.move(st.x + 300, st.y + 220, { steps: 4 }); await page.mouse.up();
     await page.click('button[role=tab]:has-text("presets")');
@@ -130,8 +132,8 @@ export const checks = [{
     if (rows < 1) throw new Error('preset created no animated rows');
     await page.fill('input[aria-label="Preset name"]', 'My Pop'); await page.click('button:has-text("Save as preset")');
     await page.waitForSelector('.chipbtn:has-text("My Pop")');
-    await page.click('button[aria-label="Back to library"]'); await page.waitForSelector('.library');
-    await page.click('text=New project'); await page.waitForSelector('.editor');
+    await page.click('button[aria-label="Back to library"]'); await page.waitForSelector(UI.library);
+    await page.click('text=New project'); await page.waitForSelector(UI.editor);
     await page.click('text=＋ Solid'); await page.click('button[role=tab]:has-text("presets")');
     await page.waitForSelector('.chipbtn:has-text("My Pop")');
     await page.click('.chipbtn:has-text("My Pop") button:first-child');
@@ -142,7 +144,7 @@ export const checks = [{
   async run({ page }) {
     for (const name of ['Logo reveal', 'Lower third', 'Kinetic type', 'Loader']) {
       await page.click('button[aria-label="Back to library"]'); await page.waitForSelector('.starters');
-      await page.click(`.starter:has-text("${name}")`); await page.waitForSelector('.editor'); await page.waitForFunction(() => window.__ripple?.renderer);
+      await page.click(`.starter:has-text("${name}")`); await page.waitForSelector(UI.editor); await page.waitForFunction(() => window.__ripple?.renderer);
       const d = await page.evaluate(() => { const p = window.__ripple.doc(); const hits = {}; for (const t of [0, 40, 100]) { const px = T.draw(p.layers, { w: p.settings.width, h: p.settings.height, t, bg: p.settings.bg, comps: p.comps }, [[960, 540], [200, 200], [960, 900], [960, 300], [1500, 540], [380, 880], [400, 840], [960, 390], [1110, 540], [960, 690], [810, 540], [1066, 434], [854, 646]]); hits[t] = JSON.stringify(px); } return { layers: p.layers.length, distinct: new Set(Object.values(hits)).size, name: p.name }; });
       if (d.layers < 1) throw new Error(name + ': no layers');
       if (d.distinct < 2) throw new Error(name + ': frames 0/40/100 render identically (nothing animates)');
@@ -157,7 +159,7 @@ export const checks = [{
     for (let i = 0; i < 3; i++) await page.click('.onboard button.primary');
     await page.click('.onboard button.primary:has-text("Get started")');
     if (await page.locator('.onboard').count()) throw new Error('onboarding should close');
-    await page.reload(); await page.waitForSelector('.library');
+    await page.reload(); await page.waitForSelector(UI.library);
     if (await page.locator('.onboard').count()) throw new Error('onboarding must not return');
   },
 }, {
@@ -183,10 +185,10 @@ export const checks = [{
     const json = JSON.parse(bytes.toString());
     if (json.layers.length !== 1 || json.fr !== 30) throw new Error('unexpected lottie ' + JSON.stringify(json).slice(0, 120));
     await page.keyboard.press('Escape');
-    await page.click('button[aria-label="Back to library"]'); await page.waitForSelector('.library');
-    const before = await page.locator('.card').count();
+    await page.click('button[aria-label="Back to library"]'); await page.waitForSelector(UI.library);
+    const before = await page.locator(UI.card).count();
     await page.setInputFiles('.library label:has-text("Import Lottie") input', { name: 'x.json', mimeType: 'application/json', buffer: bytes });
-    await page.waitForFunction((n) => document.querySelectorAll('.card').length === n + 1, before, { timeout: 15000 });
+    await page.waitForFunction((n) => document.querySelectorAll('[data-testid=project-card]').length === n + 1, before, { timeout: 15000 });
   },
 }, {
   name: 'auto-key keys still properties; layer controls live in the timeline',
@@ -204,6 +206,6 @@ export const checks = [{
     if ((await keys()) !== 1) throw new Error('auto-key should create one key, got ' + (await keys()));
     await page.locator('input[aria-label="Layer name"]').fill('Renamed');
     await page.click('button[aria-label="Duplicate layer"]');
-    if ((await page.locator('.tl-row.layer').count()) !== 2) throw new Error('duplicate from the timeline failed');
+    if ((await page.locator(UI.layerRow).count()) !== 2) throw new Error('duplicate from the timeline failed');
   },
 }];

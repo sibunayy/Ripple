@@ -190,3 +190,17 @@ describe('work area', () => {
     expect(workRange({ ...p, workArea: [500, 900] })).toEqual([299, 300]);
   });
 });
+
+describe('lock / solo', () => {
+  const a = { ...mk('solid', 0), id: 'a' }, b = { ...mk('solid', 1), id: 'b' };
+  it('solo limits rendering to soloed layers', () => {
+    expect(evaluate([a, b], 0).every((r) => r.active)).toBe(true);
+    const r = evaluate([a, { ...b, solo: true }], 0);
+    expect(r.map((x) => x.active)).toEqual([false, true]);
+  });
+  it('locked layers are not hit-testable', () => {
+    const at = (l: Layer[]) => hitTest(evaluate(l, 0), s.width / 2, s.height / 2, 0);
+    expect(at([a, b])).toBe('a');
+    expect(at([{ ...a, locked: true }, b])).toBe('b');
+  });
+});

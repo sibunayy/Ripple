@@ -32,6 +32,7 @@ function useShortcuts() {
       if (mod && k === 'z') { if (typing(e.target) && (e.target as HTMLInputElement).type !== 'number') return; e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
       if (mod && k === 's') { e.preventDefault(); void flush(); return; }
       if (typing(e.target)) return;
+      if (mod && k === 'a') { e.preventDefault(); selection.value = current.peek()!.layers.filter((l) => !l.locked).map((l) => l.id); return; }
       if (mod && k === 'd') { e.preventDefault(); duplicateLayers(selection.peek()); return; }
       if (mod && k === 'c' && keySel.peek().length) { e.preventDefault(); copySelectedKeys(); return; }
       if (mod && k === 'v') { e.preventDefault(); pasteKeyframes(); return; }
@@ -74,8 +75,8 @@ export function Editor() {
   const toggle = (k: keyof typeof panels.value) => (panels.value = { ...panels.value, [k]: !panels.value[k] });
 
   return (
-    <div class={`editor ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
-      <header class="topbar">
+    <div data-testid="editor" class={`editor ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
+      <header class="topbar" data-testid="topbar">
         {activeComp.value
           ? <button class="btn" onClick={exitComp} aria-label="Back to parent composition">‹ {compPath().length > 1 ? compPath()[compPath().length - 2] : 'Main'}</button>
           : <button class="btn" onClick={() => void closeProject()} aria-label="Back to library">‹ Library</button>}
@@ -92,7 +93,7 @@ export function Editor() {
         <button class="btn primary" onClick={() => setExportOpen(true)}>Export{activeJobs() ? ` ●${activeJobs()}` : ''}</button>
       </header>
 
-      <section class="viewer">
+      <section class="viewer" data-testid="viewer-panel">
         <Viewer />
         <footer class="transport">
           <button class="btn" onClick={() => seek(0)} aria-label="Go to start">⏮</button>
@@ -105,7 +106,7 @@ export function Editor() {
         </footer>
       </section>
 
-      <aside class="panel right">
+      <aside class="panel right" data-testid="side-panel">
         <nav class="tabs" role="tablist">
           {(['inspector', 'effects', 'presets', 'assets'] as Tab[]).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
@@ -114,7 +115,7 @@ export function Editor() {
         {tab === 'inspector' ? <Inspector /> : tab === 'effects' ? <EffectsPanel /> : tab === 'presets' ? <PresetsPanel /> : <AssetsPanel />}
       </aside>
 
-      <section class="timeline"><Timeline /></section>
+      <section class="timeline" data-testid="timeline"><Timeline /></section>
 
       {notice.value && <div class="toast" role="status"><span>{notice.value}</span><button class="btn sm" onClick={() => (notice.value = '')}>OK</button></div>}
       {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}

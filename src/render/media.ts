@@ -2,7 +2,7 @@
 // Everything loads lazily and asynchronously; `mediaRev` bumps whenever something becomes drawable so the viewer redraws.
 import { signal } from '@preact/signals';
 import { getAssetBlob } from '../io/assets';
-import type { Layer } from '../model/layer';
+import { hasSolo, isShown, type Layer } from '../model/layer';
 import type { Comp } from '../model/project';
 
 export const mediaRev = signal(0);
@@ -58,8 +58,9 @@ export function seekVideo(el: HTMLVideoElement, sec: number): Promise<void> {
 
 /** Preview sync: play active videos while the clock runs, seek them while scrubbing. Call before each draw. */
 export function syncVideos(layers: readonly Layer[], comps: Record<string, Comp>, t: number, fps: number, playing: boolean, depth = 0) {
+  const anySolo = hasSolo(layers);
   for (const l of layers) {
-    const active = l.visible && t >= l.in && t < l.out;
+    const active = isShown(l, t, anySolo);
     if (l.type === 'precomp' && l.precomp && depth < 4) {
       const c = comps[l.precomp.comp];
       if (c && active) syncVideos(c.layers, comps, (t - l.in) * (c.fps / fps) + l.precomp.offset, c.fps, playing, depth + 1);
@@ -82,8 +83,9 @@ export function syncVideos(layers: readonly Layer[], comps: Record<string, Comp>
 
 /** Export: make every media source drawable at exactly frame t (images decoded, videos seeked). */
 export async function prepareMedia(layers: readonly Layer[], comps: Record<string, Comp>, t: number, fps: number, depth = 0): Promise<void> {
+  const anySolo = hasSolo(layers);
   for (const l of layers) {
-    if (!l.visible || t < l.in || t >= l.out) continue;
+    if (!isShown(l, t, anySolo)) continue;
     if (l.type === 'precomp' && l.precomp && depth < 4) {
       const c = comps[l.precomp.comp];
       if (c) await prepareMedia(c.layers, comps, (t - l.in) * (c.fps / fps) + l.precomp.offset, c.fps, depth + 1);

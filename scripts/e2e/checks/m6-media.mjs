@@ -1,3 +1,4 @@
+import { UI } from '../ui.mjs';
 import { deflateSync } from 'node:zlib';
 
 // minimal PNG encoder for test fixtures
@@ -29,7 +30,7 @@ export const checks = [{
   name: 'import a PNG: asset recorded, layer fitted, pixels drawn, deduped on re-import',
   async run({ page }) {
     await page.setInputFiles('label[aria-label="Import media"] input', { name: 'red.png', mimeType: 'image/png', buffer: png(64, 64, [255, 0, 0, 255]) });
-    await page.waitForSelector('.tl-row.layer.on');
+    await page.waitForSelector(UI.layerRowSelected);
     await page.waitForFunction(() => window.__ripple.doc().layers.length === 1);
     await page.waitForTimeout(300); // bitmap decode + redraw
     const [mid, corner] = await sample(page, [[960, 540], [5, 5]]);

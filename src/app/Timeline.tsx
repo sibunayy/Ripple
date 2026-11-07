@@ -1,7 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
 import {
   addAdjustment, addComp, addLayer, addMarker, addShaderLayer, autoKey, current, deleteLayers, duplicateLayers, expanded, importMedia, keySel, moveLayer, moveSelectedKeys, playhead,
-  precompose, removeMarker, renameLayer, renameMarker, selMarker, selection, setParent, setTiming, setWorkArea, toggleExpanded, toggleVisible,
+  hideShy, precompose, removeMarker, renameLayer, renameMarker, selMarker, selection, setParent, setTiming, setWorkArea, toggleExpanded, toggleLocked, toggleShy, toggleSolo, toggleVisible,
 } from './state';
 import { setTool } from './tools';
 import { seek } from './playback';
@@ -13,7 +13,7 @@ import { EasingPicker } from './EasingPicker';
 import { animatedProps, propLabel } from './props';
 import { allProps, propOf, type Layer, type Prop, type PropKey } from '../model/layer';
 
-const NAME_W = 210;
+const NAME_W = 270; // keep in sync with --name-w in theme.css
 const MIN_PPF = 0.5, MAX_PPF = 40;
 const px = (n: number) => `${n}px`;
 
@@ -80,6 +80,8 @@ export function Timeline() {
           <button class="btn sm danger" onClick={() => deleteLayers(sel)} aria-label="Delete layer">✕</button>
         </>}
         <span class="spacer" />
+        <button class={`btn sm ${hideShy.value ? 'on' : ''}`} aria-pressed={hideShy.value} onClick={() => (hideShy.value = !hideShy.value)}
+          title="Hide layers marked shy from this list">Shy</button>
         <button class="btn sm" onClick={() => addMarker()} aria-label="Add marker at playhead">◆ Marker</button>
         {marker && <button class="btn sm danger" onClick={() => removeMarker(marker.id)} aria-label="Delete marker">✕ {marker.name}</button>}
         {p.workArea && <button class="btn sm" onClick={() => setWorkArea(null)}>Reset range</button>}
@@ -115,7 +117,7 @@ export function Timeline() {
               </div>
             </div>
             {p.layers.length === 0 && <p class="hint tl-empty">Add a solid to get started.</p>}
-            {p.layers.map((l) => (
+            {p.layers.filter((l) => !(hideShy.value && l.shy)).map((l) => (
               <LayerRows key={l.id} layer={l} ppf={ppf} on={selection.value.includes(l.id)} open={expanded.value.includes(l.id)} />
             ))}
             <div class="playhead" style={{ left: px(NAME_W + playhead.value * ppf) }} />
@@ -162,13 +164,19 @@ function LayerRows({ layer: l, ppf, on, open }: { layer: Layer; ppf: number; on:
   const trackW = px(current.value!.settings.duration * ppf);
   return (
     <>
-      <div class={`tl-row layer ${on ? 'on' : ''} ${l.visible ? '' : 'dim'}`}
+      <div data-testid="layer-row" data-selected={on} class={`tl-row layer ${on ? 'on' : ''} ${l.visible ? '' : 'dim'}`}
         onClick={(e) => { const cur = selection.peek(); selection.value = e.shiftKey ? (on ? cur.filter((x) => x !== l.id) : [...cur, l.id]) : [l.id]; }}>
         <div class="tl-name" title={l.name}>
           <button class="chev" disabled={!props.length} aria-expanded={open} aria-label={open ? 'Collapse properties' : 'Expand properties'}
             onClick={(e) => { e.stopPropagation(); toggleExpanded(l.id); }}>{props.length ? (open ? '▾' : '▸') : ''}</button>
           <button class={`eye ${l.visible ? '' : 'off'}`} aria-label={l.visible ? 'Hide layer' : 'Show layer'} aria-pressed={l.visible}
             onClick={(e) => { e.stopPropagation(); toggleVisible(l.id); }}>{l.visible ? '●' : '○'}</button>
+          <button class={`lf ${l.solo ? 'on' : ''}`} aria-label={l.solo ? 'Unsolo layer' : 'Solo layer'} aria-pressed={!!l.solo} title="Solo"
+            onClick={(e) => { e.stopPropagation(); toggleSolo(l.id); }}>S</button>
+          <button class={`lf ${l.locked ? 'on' : ''}`} aria-label={l.locked ? 'Unlock layer' : 'Lock layer'} aria-pressed={!!l.locked} title="Lock"
+            onClick={(e) => { e.stopPropagation(); toggleLocked(l.id); }}>{l.locked ? '🔒' : '🔓'}</button>
+          <button class={`lf ${l.shy ? 'on' : ''}`} aria-label={l.shy ? 'Unmark shy' : 'Mark layer shy'} aria-pressed={!!l.shy} title="Shy"
+            onClick={(e) => { e.stopPropagation(); toggleShy(l.id); }}>👁</button>
           <i class="chip" title={l.type} style={{ background: l.type === 'solid' || l.type === 'shape' || l.type === 'precomp' || l.type === 'image' || l.type === 'video' ? `rgb(${l.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'transparent' }}>{({ text: 'T', adjustment: '◐', precomp: '▣', shader: '◈', image: '▨', video: '▶︎' } as Record<string, string>)[l.type] ?? ''}</i>
           <input class="name" value={l.name} aria-label="Layer name" onClick={(e) => e.stopPropagation()}
             onChange={(e) => renameLayer(l.id, (e.target as HTMLInputElement).value)} />

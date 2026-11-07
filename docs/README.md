@@ -8,3 +8,4 @@
 - [spec.md](../spec.md) · [plan.md](../plan.md) — design and roadmap
 
 The same guide, shortcuts and format notes are available in the app: tap **?** in the editor or the library.
+- UI redesign? Read [ui-contract.md](ui-contract.md) first.

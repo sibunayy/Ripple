@@ -86,7 +86,8 @@ export function Viewer() {
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<{ dist: number; mx: number; my: number } | null>(null);
   type Drag =
-    | { kind: 'move'; id: string; start: Vec2; pos: Vec2; lin: [number, number, number, number]; box: [number, number, number, number]; targets: { xs: number[]; ys: number[] } }
+    | { kind: 'marquee'; x0: Vec2; base: string[] }
+    | { kind: 'move'; id: string; others: { id: string; pos: Vec2; lin: [number, number, number, number] }[]; start: Vec2; pos: Vec2; lin: [number, number, number, number]; box: [number, number, number, number]; targets: { xs: number[]; ys: number[] } }
     | { kind: 'pan'; x: number; y: number; vx: number; vy: number }
     | { kind: 'create'; tool: Tool; id: string | null; start: Vec2; sx: number; sy: number; moved: boolean }
     | { kind: 'node'; id: string; idx: number }
@@ -214,10 +215,29 @@ export function Viewer() {
     nodeSel.value = null;
 
     const id = hitTest(resolved, cx, cy, time, 10 / zoom);
-    if (!id) { selection.value = []; return; }
+    if (!id) { // empty space: sweep a marquee (shift adds to the selection)
+      const base = e.shiftKey ? selection.peek() : [];
+      if (!e.shiftKey) selection.value = [];
+      marquee.value = { a: [cx, cy], b: [cx, cy] };
+      drag.current = { kind: 'marquee', x0: [cx, cy], base };
+      return;
+    }
     const r = resolved.find((x) => x.layer.id === id)!;
     if (r.layer.type === 'text' && doubleTap(e)) { selection.value = [id]; editingText.value = id; return; }
-    selection.value = [id];
+    const cur = selection.peek();
+    if (e.shiftKey) { // toggle membership; a removed layer isn't dragged
+      selection.value = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+      if (!selection.peek().includes(id)) return;
+    } else if (!cur.includes(id)) selection.value = [id];
+    // every selected layer moves together, except those already carried by a selected ancestor
+    const selNow = new Set(selection.peek());
+    const byId = new Map(resolved.map((x) => [x.layer.id, x]));
+    const carried = (l: Layer) => { for (let q = l.parent ? byId.get(l.parent) : undefined, n = 0; q && n < 64; q = q.layer.parent ? byId.get(q.layer.parent) : undefined, n++) if (selNow.has(q.layer.id)) return true; return false; };
+    const others = resolved.filter((x) => selNow.has(x.layer.id) && x.layer.id !== id && !x.layer.locked && !carried(x.layer)).map((x) => {
+      const pw = x.layer.parent ? byId.get(x.layer.parent)?.world : undefined;
+      const iv = (pw ? invert(pw) : null) ?? [1, 0, 0, 1, 0, 0];
+      return { id: x.layer.id, pos: evalProp(x.layer.transform.position, frame()) as Vec2, lin: [iv[0]!, iv[1]!, iv[2]!, iv[3]!] as [number, number, number, number] };
+    });
     const parentW = r.layer.parent ? resolved.find((x) => x.layer.id === r.layer.parent)?.world : undefined;
     const inv = parentW ? invert(parentW) : [1, 0, 0, 1, 0, 0];
     const sx: number[] = [0, s.width / 2, s.width], sy: number[] = [0, s.height / 2, s.height];
@@ -227,7 +247,7 @@ export function Viewer() {
       sx.push(Math.min(...xs), Math.max(...xs), (Math.min(...xs) + Math.max(...xs)) / 2); sy.push(Math.min(...ys), Math.max(...ys), (Math.min(...ys) + Math.max(...ys)) / 2);
     }
     const mc = corners(r, time), mxs = mc.map((q) => q[0]), mys = mc.map((q) => q[1]);
-    drag.current = { kind: 'move', id, targets: { xs: sx, ys: sy }, box: [Math.min(...mxs), Math.min(...mys), Math.max(...mxs), Math.max(...mys)], start: [cx, cy], pos: evalProp(r.layer.transform.position, frame()) as Vec2, lin: inv ? [inv[0]!, inv[1]!, inv[2]!, inv[3]!] : [1, 0, 0, 1] };
+    drag.current = { kind: 'move', id, others, targets: { xs: sx, ys: sy }, box: [Math.min(...mxs), Math.min(...mys), Math.max(...mxs), Math.max(...mys)], start: [cx, cy], pos: evalProp(r.layer.transform.position, frame()) as Vec2, lin: inv ? [inv[0]!, inv[1]!, inv[2]!, inv[3]!] : [1, 0, 0, 1] };
   };
 
   const onMove = (e: PointerEvent) => {
@@ -248,7 +268,18 @@ export function Viewer() {
     const d = drag.current; if (!d) return;
     if (d.kind === 'pan') { setView((v) => ({ ...v, x: d.vx + e.clientX - d.x, y: d.vy + e.clientY - d.y, fit: false })); return; }
     const [cx, cy] = toComp(e.clientX, e.clientY);
-    if (d.kind === 'move') {
+    if (d.kind === 'marquee') {
+      const a = d.x0, b: Vec2 = [cx, cy];
+      marquee.value = { a, b };
+      const lo = [Math.min(a[0], b[0]), Math.min(a[1], b[1])], hi = [Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+      const t = playhead.peek();
+      const hit = evaluate(current.peek()!.layers, t).filter((r) => {
+        if (!r.active || r.layer.locked) return false;
+        const cs = corners(r, t), xs = cs.map((q) => q[0]), ys = cs.map((q) => q[1]);
+        return Math.max(...xs) >= lo[0]! && Math.min(...xs) <= hi[0]! && Math.max(...ys) >= lo[1]! && Math.min(...ys) <= hi[1]!;
+      }).map((r) => r.layer.id);
+      selection.value = [...d.base.filter((x) => !hit.includes(x)), ...hit];
+    } else if (d.kind === 'move') {
       let dx = cx - d.start[0], dy = cy - d.start[1];
       if (!e.altKey) { // snap box edges/centre to the comp and other layers
         const th = 6 / viewRef.current.zoom, g: { x?: number; y?: number } = {};
@@ -258,7 +289,8 @@ export function Viewer() {
         if (by !== null) { dy += by; g.y = [d.box[1] + dy, (d.box[1] + d.box[3]) / 2 + dy, d.box[3] + dy].find((v) => d.targets.ys.some((t) => Math.abs(t - v) < 0.01)); }
         guides.value = g;
       } else guides.value = {};
-      setTransform(d.id, 'position', [d.pos[0] + d.lin[0] * dx + d.lin[2] * dy, d.pos[1] + d.lin[1] * dx + d.lin[3] * dy], `move:${d.id}`);
+      for (const o of [{ id: d.id, pos: d.pos, lin: d.lin }, ...d.others])
+        setTransform(o.id, 'position', [o.pos[0] + o.lin[0] * dx + o.lin[2] * dy, o.pos[1] + o.lin[1] * dx + o.lin[3] * dy], `move:${o.id}`);
     } else if (d.kind === 'scale') {
       const lp = apply(d.inv, cx, cy);
       const f = (n: number, c: number, a: number) => (Math.abs(c - a) < 1e-3 ? 1 : Math.max(-50, Math.min(50, (n - a) / (c - a))));
@@ -303,7 +335,7 @@ export function Viewer() {
 
   const onUp = (e: PointerEvent) => {
     pointers.current.delete(e.pointerId);
-    guides.value = {};
+    guides.value = {}; marquee.value = null;
     if (pointers.current.size < 2) gesture.current = null;
     if (pointers.current.size === 0) {
       const d = drag.current;
@@ -335,7 +367,7 @@ export function Viewer() {
 
   return (
     <div class="viewport" ref={wrap} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length) void importMedia(fs); }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-      <div class="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+      <div class="stage" data-testid="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
         <canvas ref={canvas} aria-label="Composition viewer" />
         <Overlay zoom={view.zoom} />
         <TextEditor />
@@ -376,6 +408,9 @@ function Overlay({ zoom }: { zoom: number }) {
         );
       })}
       <PenDraft px={px} />
+      {marquee.value && <rect x={Math.min(marquee.value.a[0], marquee.value.b[0])} y={Math.min(marquee.value.a[1], marquee.value.b[1])}
+        width={Math.abs(marquee.value.a[0] - marquee.value.b[0])} height={Math.abs(marquee.value.a[1] - marquee.value.b[1])}
+        fill="var(--accent)" fill-opacity=".12" stroke="var(--accent)" stroke-width={px} stroke-dasharray={`${4 * px} ${3 * px}`} />}
       {guides.value.x !== undefined && <line x1={guides.value.x} x2={guides.value.x} y1={0} y2={p.settings.height} stroke="var(--danger)" stroke-width={px} />}
       {guides.value.y !== undefined && <line y1={guides.value.y} y2={guides.value.y} x1={0} x2={p.settings.width} stroke="var(--danger)" stroke-width={px} />}
     </svg>
@@ -483,6 +518,7 @@ function MotionPath({ layer, px }: { layer: Layer; px: number }) {
 }
 
 const guides = signal<{ x?: number; y?: number }>({});
+const marquee = signal<{ a: Vec2; b: Vec2 } | null>(null);
 /** Preview motion blur in the viewer (4 samples max); exports always use the project's full setting. */
 export const mbPreview = signal(false);
 /** Preview resolution: 'auto' adapts to keep playback smooth (spec §10); numbers are fixed fractions of full size. */

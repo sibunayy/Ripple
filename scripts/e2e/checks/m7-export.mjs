@@ -1,3 +1,4 @@
+import { UI } from '../ui.mjs';
 import { unzipSync, strFromU8 } from 'fflate';
 import { setRange, runExport, pngSize } from './m45-export.mjs';
 import { deflateSync } from 'node:zlib';
@@ -66,12 +67,12 @@ export const checks = [{
     if (!files[`assets/${manifest.assets[0]}`] || !files['project.json']) throw new Error('missing entries: ' + Object.keys(files));
     await page.keyboard.press('Escape'); await page.mouse.click(5, 5);
     await page.click('button[aria-label="Back to library"]');
-    await page.waitForSelector('.card');
-    const before = await page.locator('.card').count();
+    await page.waitForSelector(UI.card);
+    const before = await page.locator(UI.card).count();
     await page.setInputFiles('.library label:has-text("Import .ripple") input', { name: 'p.ripple', mimeType: 'application/zip', buffer: Buffer.from(bytes) });
-    await page.waitForFunction((n) => document.querySelectorAll('.card').length === n + 1, before, { timeout: 15000 });
+    await page.waitForFunction((n) => document.querySelectorAll('[data-testid=project-card]').length === n + 1, before, { timeout: 15000 });
     await page.locator('.card .thumb').first().click();
-    await page.waitForSelector('.editor');
+    await page.waitForSelector(UI.editor);
     const doc = await page.evaluate(() => { const d = window.__ripple.doc(); return { layers: d.layers.length, assets: Object.keys(d.assets).length }; });
     if (doc.layers !== 1 || doc.assets !== 1) throw new Error('imported project incomplete ' + JSON.stringify(doc));
   },
@@ -79,7 +80,7 @@ export const checks = [{
   name: 'corrupt project file recovers from an automatic snapshot',
   async run({ page }) {
     const id = await page.evaluate(() => window.__ripple.doc().id);
-    await page.click('button[aria-label="Back to library"]'); await page.waitForSelector('.card');
+    await page.click('button[aria-label="Back to library"]'); await page.waitForSelector(UI.card);
     await page.evaluate(async (id) => {
       const root = await navigator.storage.getDirectory(), dir = await root.getDirectoryHandle('projects');
       const fh = await dir.getFileHandle(id + '.json'); const good = await (await fh.getFile()).text();
@@ -88,7 +89,7 @@ export const checks = [{
       await new Promise((res, rej) => { const r = indexedDB.open('ripple', 1); r.onsuccess = () => { const tx = r.result.transaction('blobs', 'readwrite'); tx.objectStore('blobs').put(snap, 'snaps:' + id); tx.oncomplete = res; tx.onerror = rej; }; });
     }, id);
     await page.evaluate((id) => { const b = [...document.querySelectorAll('.card .thumb')].find((el) => true); b.click(); }, id);
-    await page.waitForSelector('.editor', { timeout: 10000 });
+    await page.waitForSelector(UI.editor, { timeout: 10000 });
     const name = await page.inputValue('input.title');
     if (name !== 'Recovered') throw new Error('did not recover, name=' + name);
     await page.waitForSelector('.toast >> text=damaged');

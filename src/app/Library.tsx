@@ -32,7 +32,7 @@ const nudgeHidden = signal((() => { try { return localStorage.getItem('rf-nudge'
 export function Library() {
   const items = library.value;
   return (
-    <main class="library">
+    <main class="library" data-testid="library">
       {notice.value && <div class="toast" role="status"><span>{notice.value}</span><button class="btn sm" onClick={() => (notice.value = '')}>OK</button></div>}
       <header>
         <h1>RippleFlow</h1>
@@ -60,7 +60,7 @@ export function Library() {
       ) : (
         <ul class="grid">
           {items.map((m) => (
-            <li key={m.id} class="card">
+            <li key={m.id} class="card" data-testid="project-card">
               <Thumb id={m.id} modified={m.modified} label={`Open ${m.name}`} ratio={`${m.width} / ${m.height}`} onOpen={() => void openProject(m.id)} />
               <div class="meta">
                 <strong>{m.name}</strong>

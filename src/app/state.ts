@@ -359,6 +359,13 @@ export const renameLayer = (id: string, name: string) =>
   commit('Rename layer', (p) => mapLayer(p, id, (l) => ({ ...l, name: name.trim() || l.name })));
 export const toggleVisible = (id: string) =>
   commit('Toggle visibility', (p) => mapLayer(p, id, (l) => ({ ...l, visible: !l.visible })));
+const toggleFlag = (id: string, key: 'locked' | 'solo' | 'shy', label: string) =>
+  commit(label, (p) => mapLayer(p, id, (l) => ({ ...l, [key]: !l[key] })));
+export const toggleLocked = (id: string) => toggleFlag(id, 'locked', 'Toggle lock');
+export const toggleSolo = (id: string) => toggleFlag(id, 'solo', 'Toggle solo');
+export const toggleShy = (id: string) => toggleFlag(id, 'shy', 'Toggle shy');
+/** Timeline filter: hide shy layers from the list. */
+export const hideShy = signal(false);
 export const setParent = (id: string, parentId: string | undefined) =>
   commit('Set parent', (p) => ({ ...p, layers: reparent(p.layers, id, parentId, frame()) }));
 export const setLayerColor = (id: string, color: Layer['color']) =>
