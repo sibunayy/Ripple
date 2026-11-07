@@ -103,7 +103,7 @@ export const checks = [{
     await p2.waitForSelector('.card');
     await p2.locator('.card .thumb').first().click();
     await p2.waitForSelector('.editor');
-    const n = await p2.locator('.layers li').count();
+    const n = await p2.locator('.tl-row.layer').count();
     if (n !== 2) throw new Error('expected 2 layers after restore, got ' + n);
   },
 }, {
@@ -185,5 +185,23 @@ export const checks = [{
     const before = await page.locator('.card').count();
     await page.setInputFiles('.library label:has-text("Import Lottie") input', { name: 'x.json', mimeType: 'application/json', buffer: bytes });
     await page.waitForFunction((n) => document.querySelectorAll('.card').length === n + 1, before, { timeout: 15000 });
+  },
+}, {
+  name: 'auto-key keys still properties; layer controls live in the timeline',
+  async run({ page }) {
+    if (await page.locator('.panel.left').count()) throw new Error('left layers panel should be gone');
+    await page.click('text=＋ Solid');
+    const keys = () => page.evaluate(() => { const o = window.__ripple.doc().layers[0].transform.opacity; return 'keys' in o ? o.keys.length : 0; });
+    const field = page.locator('input[aria-label="Opacity"]').first();
+    await field.fill('50'); await field.press('Tab');
+    if ((await keys()) !== 0) throw new Error('edit with auto-key off must not key');
+    await page.click('button:has-text("Auto-key")');
+    if ((await page.locator('button:has-text("Auto-key")').getAttribute('aria-pressed')) !== 'true') throw new Error('auto-key should be on');
+    await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('End');
+    await field.fill('20'); await field.press('Tab');
+    if ((await keys()) !== 1) throw new Error('auto-key should create one key, got ' + (await keys()));
+    await page.locator('input[aria-label="Layer name"]').fill('Renamed');
+    await page.click('button[aria-label="Duplicate layer"]');
+    if ((await page.locator('.tl-row.layer').count()) !== 2) throw new Error('duplicate from the timeline failed');
   },
 }];

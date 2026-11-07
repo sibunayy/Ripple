@@ -9,6 +9,7 @@
 | `Home / End` | Jump to start / end |
 | `Alt + ← / →` | Previous / next keyframe |
 | `I / O` | Set work-area in / out |
+| `K` | Toggle auto-key |
 | `M` | Add marker |
 | `⌘Z / ⇧⌘Z` | Undo / redo |
 | `⌘S` | Save now |

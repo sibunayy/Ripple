@@ -1,7 +1,9 @@
 import { useRef, useState } from 'preact/hooks';
 import {
-  addMarker, current, expanded, keySel, playhead, removeMarker, renameMarker, selMarker, selection, setTiming, setWorkArea, toggleExpanded, moveSelectedKeys,
+  addAdjustment, addComp, addLayer, addMarker, addShaderLayer, autoKey, current, deleteLayers, duplicateLayers, expanded, importMedia, keySel, moveLayer, moveSelectedKeys, playhead,
+  precompose, removeMarker, renameLayer, renameMarker, selMarker, selection, setParent, setTiming, setWorkArea, toggleExpanded, toggleVisible,
 } from './state';
+import { setTool } from './tools';
 import { seek } from './playback';
 import { isAnimated } from '../anim/interp';
 import { sameKey, type KeyRef } from '../anim/keys';
@@ -11,7 +13,7 @@ import { EasingPicker } from './EasingPicker';
 import { animatedProps, propLabel } from './props';
 import { allProps, propOf, type Layer, type Prop, type PropKey } from '../model/layer';
 
-const NAME_W = 150;
+const NAME_W = 210;
 const MIN_PPF = 0.5, MAX_PPF = 40;
 const px = (n: number) => `${n}px`;
 
@@ -40,6 +42,9 @@ export function Timeline() {
   const scrub = (e: PointerEvent) => seek((e.clientX - (e.currentTarget as HTMLElement).getBoundingClientRect().left) / ppf);
   const marker = p.markers.find((m) => m.id === selMarker.value);
   const nKeys = keySel.value.length;
+  const sel = selection.value;
+  const first = p.layers.find((l) => l.id === sel[0]);
+  const idx = first ? p.layers.indexOf(first) : -1;
 
   return (
     <>
@@ -48,7 +53,32 @@ export function Timeline() {
           <button role="tab" aria-selected={mode === 'dope'} onClick={() => setMode('dope')}>Dope sheet</button>
           <button role="tab" aria-selected={mode === 'graph'} onClick={() => setMode('graph')}>Graph</button>
         </div>
+        <button class={`btn sm autokey ${autoKey.value ? 'on' : ''}`} aria-pressed={autoKey.value} onClick={() => (autoKey.value = !autoKey.value)}
+          title="Auto-key (K): editing any property at the playhead creates a keyframe">● Auto-key</button>
         <button class="btn sm" disabled={!nKeys} onClick={() => setEasingOpen(true)}>Easing{nKeys ? ` (${nKeys})` : ''}</button>
+        <span class="sep" />
+        <button class="btn sm" onClick={() => addLayer('solid')} aria-label="Add solid layer">＋ Solid</button>
+        <button class="btn sm" onClick={() => addLayer('null')} aria-label="Add null layer">＋ Null</button>
+        <button class="btn sm" onClick={() => setTool('rect')} aria-label="Draw a shape">＋ Shape</button>
+        <button class="btn sm" onClick={() => setTool('text')} aria-label="Add text">＋ Text</button>
+        <button class="btn sm" onClick={addAdjustment} aria-label="Add adjustment layer">＋ Adjust</button>
+        <button class="btn sm" onClick={addShaderLayer} aria-label="Add shader layer">＋ Shader</button>
+        <button class="btn sm" onClick={addComp} aria-label="Add composition">＋ Comp</button>
+        <label class="btn sm filebtn" aria-label="Import media">＋ Media
+          <input type="file" multiple accept="image/*,video/*,.svg,.heic,.avif" hidden onChange={(e) => { const fs = Array.from((e.target as HTMLInputElement).files ?? []); if (fs.length) void importMedia(fs); (e.target as HTMLInputElement).value = ''; }} />
+        </label>
+        {sel.length > 0 && <>
+          <span class="sep" />
+          {first && <select class="parent" aria-label="Parent layer" value={first.parent ?? ''} onChange={(e) => setParent(first.id, (e.target as HTMLSelectElement).value || undefined)}>
+            <option value="">No parent</option>
+            {p.layers.filter((o) => o.id !== first.id).map((o) => <option key={o.id} value={o.id}>↳ {o.name}</option>)}
+          </select>}
+          <button class="btn sm" disabled={idx <= 0} onClick={() => first && moveLayer(first.id, -1)} aria-label="Move layer up">↑</button>
+          <button class="btn sm" disabled={idx < 0 || idx === p.layers.length - 1} onClick={() => first && moveLayer(first.id, 1)} aria-label="Move layer down">↓</button>
+          <button class="btn sm" onClick={() => duplicateLayers(sel)} aria-label="Duplicate layer">⧉</button>
+          <button class="btn sm" onClick={() => precompose(sel)} aria-label="Pre-compose selected layers">▣</button>
+          <button class="btn sm danger" onClick={() => deleteLayers(sel)} aria-label="Delete layer">✕</button>
+        </>}
         <span class="spacer" />
         <button class="btn sm" onClick={() => addMarker()} aria-label="Add marker at playhead">◆ Marker</button>
         {marker && <button class="btn sm danger" onClick={() => removeMarker(marker.id)} aria-label="Delete marker">✕ {marker.name}</button>}
@@ -84,6 +114,7 @@ export function Timeline() {
                 ))}
               </div>
             </div>
+            {p.layers.length === 0 && <p class="hint tl-empty">Add a solid to get started.</p>}
             {p.layers.map((l) => (
               <LayerRows key={l.id} layer={l} ppf={ppf} on={selection.value.includes(l.id)} open={expanded.value.includes(l.id)} />
             ))}
@@ -131,11 +162,16 @@ function LayerRows({ layer: l, ppf, on, open }: { layer: Layer; ppf: number; on:
   const trackW = px(current.value!.settings.duration * ppf);
   return (
     <>
-      <div class={`tl-row ${on ? 'on' : ''} ${l.visible ? '' : 'dim'}`} onClick={() => { selection.value = [l.id]; }}>
+      <div class={`tl-row layer ${on ? 'on' : ''} ${l.visible ? '' : 'dim'}`}
+        onClick={(e) => { const cur = selection.peek(); selection.value = e.shiftKey ? (on ? cur.filter((x) => x !== l.id) : [...cur, l.id]) : [l.id]; }}>
         <div class="tl-name" title={l.name}>
           <button class="chev" disabled={!props.length} aria-expanded={open} aria-label={open ? 'Collapse properties' : 'Expand properties'}
             onClick={(e) => { e.stopPropagation(); toggleExpanded(l.id); }}>{props.length ? (open ? '▾' : '▸') : ''}</button>
-          {l.name}
+          <button class={`eye ${l.visible ? '' : 'off'}`} aria-label={l.visible ? 'Hide layer' : 'Show layer'} aria-pressed={l.visible}
+            onClick={(e) => { e.stopPropagation(); toggleVisible(l.id); }}>{l.visible ? '●' : '○'}</button>
+          <i class="chip" title={l.type} style={{ background: l.type === 'solid' || l.type === 'shape' || l.type === 'precomp' || l.type === 'image' || l.type === 'video' ? `rgb(${l.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'transparent' }}>{({ text: 'T', adjustment: '◐', precomp: '▣', shader: '◈', image: '▨', video: '▶︎' } as Record<string, string>)[l.type] ?? ''}</i>
+          <input class="name" value={l.name} aria-label="Layer name" onClick={(e) => e.stopPropagation()}
+            onChange={(e) => renameLayer(l.id, (e.target as HTMLInputElement).value)} />
         </div>
         <div class="tl-track" style={{ width: trackW }}>
           <div class="bar" style={{ left: px(l.in * ppf), width: px(Math.max(4, (l.out - l.in) * ppf)) }}
