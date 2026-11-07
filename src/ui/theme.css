@@ -15,6 +15,7 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body, #app { height: 100%; margin: 0; }
+html, body { position: fixed; inset: 0; width: 100%; overflow: hidden; overscroll-behavior: none; } /* the page itself never scrolls or bounces; panels scroll internally */
 body {
   background: var(--bg); color: var(--text);
   font: 15px/1.4 -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
@@ -111,6 +112,8 @@ input[type='color'] { width: 100%; height: var(--hit); border: 1px solid var(--l
 .num .lbl { font-size: 12px; color: var(--muted); cursor: ew-resize; padding: 8px 2px; touch-action: none; min-width: 10px; }
 .num input { min-height: 36px; padding: 0 8px; min-width: 0; }
 .num { min-width: 0; }
+.num .slide { grid-column: 1 / -1; width: 100%; min-height: 28px; margin: 0; accent-color: var(--accent); touch-action: pan-y; }
+@media (pointer: coarse) { .num .slide { min-height: 36px; } }
 
 /* Timeline */
 .timeline { padding: 0 !important; display: grid; grid-template-rows: auto 1fr; }
