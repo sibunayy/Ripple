@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import {
-  restoreVersion, notice, activeComp, compPath, exitComp, addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
+  autoKey, restoreVersion, notice, activeComp, compPath, exitComp, addMarker, canRedo, canUndo, closeProject, copySelectedKeys, current, deleteLayers, deleteSelectedKeys, duplicateLayers, flush, frame, jumpToKey,
   keySel, moveSelectedKeys, pasteKeyframes, playhead, redo, rename, saveState, selection, setSettings, setWorkArea, undo, undoLabel,
 } from './state';
 import { activeJobs } from '../export/queue';
@@ -10,7 +10,6 @@ import { cancelPen, deleteSelectedNode, finishPen, nodeSel, penDraft, setTool, T
 import { pause, play, playing, seek, step, togglePlay } from './playback';
 import { Viewer, mbPreview, previewQuality, setPreviewQuality, type Quality } from './Viewer';
 import { Timeline } from './Timeline';
-import { LayersPanel } from './LayersPanel';
 import { Inspector } from './Inspector';
 import { ExportDialog } from './ExportDialog';
 import { EffectsPanel } from './EffectsPanel';
@@ -21,7 +20,7 @@ import { useDialog } from '../ui/dialog';
 import { FPS_PRESETS, SIZE_PRESETS, fromHex, timecode, toHex } from '../model/project';
 
 type Tab = 'inspector' | 'effects' | 'presets' | 'assets';
-const panels = signal({ left: true, right: true, timeline: true });
+const panels = signal({ right: true, timeline: true });
 const SAVE_LABEL = { saved: 'Saved', dirty: 'Unsaved…', saving: 'Saving…', error: 'Save failed' } as const;
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) && (t as HTMLInputElement).type !== 'color';
 
@@ -46,6 +45,7 @@ function useShortcuts() {
       if (e.key === 'Escape') { if (penDraft.peek()) cancelPen(); setTool('select'); return; }
       if (e.key === 'Enter' && penDraft.peek()) { e.preventDefault(); finishPen(false); return; }
       if (!mod && !e.altKey) { const tl = TOOLS.find((x) => x.key.toLowerCase() === k); if (tl) { e.preventDefault(); setTool(tl.id); return; } }
+      if (k === 'k' && !mod && !e.altKey) { e.preventDefault(); autoKey.value = !autoKey.value; return; }
       if (k === 'm' && !mod) { e.preventDefault(); addMarker(); return; }
       if (k === 'i' && !mod) { e.preventDefault(); const p = current.peek()!; setWorkArea([frame(), p.workArea?.[1] ?? p.settings.duration]); return; }
       if (k === 'o' && !mod) { e.preventDefault(); const p = current.peek()!; setWorkArea([p.workArea?.[0] ?? 0, frame() + 1]); return; }
@@ -74,7 +74,7 @@ export function Editor() {
   const toggle = (k: keyof typeof panels.value) => (panels.value = { ...panels.value, [k]: !panels.value[k] });
 
   return (
-    <div class={`editor ${panels.value.left ? '' : 'no-left'} ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
+    <div class={`editor ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
       <header class="topbar">
         {activeComp.value
           ? <button class="btn" onClick={exitComp} aria-label="Back to parent composition">‹ {compPath().length > 1 ? compPath()[compPath().length - 2] : 'Main'}</button>
@@ -85,15 +85,12 @@ export function Editor() {
         <span class="spacer" />
         <button class="btn" disabled={!canUndo()} onClick={undo} title={undoLabel()} aria-label="Undo">↶</button>
         <button class="btn" disabled={!canRedo()} onClick={redo} aria-label="Redo">↷</button>
-        <button class="btn" aria-pressed={panels.value.left} onClick={() => toggle('left')}>Layers</button>
         <button class="btn" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')}>Timeline</button>
         <button class="btn" aria-pressed={panels.value.right} onClick={() => toggle('right')}>Panel</button>
         <button class="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
         <button class="btn" aria-label="Help and shortcuts" onClick={() => setHelpOpen(true)}>?</button>
         <button class="btn primary" onClick={() => setExportOpen(true)}>Export{activeJobs() ? ` ●${activeJobs()}` : ''}</button>
       </header>
-
-      <aside class="panel left"><LayersPanel /></aside>
 
       <section class="viewer">
         <Viewer />

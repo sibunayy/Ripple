@@ -69,9 +69,9 @@ export const checks = [{
     await page.click('text=＋ Rectangle');
     if (!(await page.locator('.mask').count())) throw new Error('mask not added');
     await page.click('text=＋ Adjust');
-    if ((await page.locator('.layers li').count()) !== 3) throw new Error('expected 3 layers');
+    if ((await page.locator('.tl-row.layer').count()) !== 3) throw new Error('expected 3 layers');
     await page.locator('button[aria-label="Pre-compose selected layers"]').click();
-    if ((await page.locator('.layers li').count()) !== 3) throw new Error('precompose should replace 1 of 3 with 1');
+    if ((await page.locator('.tl-row.layer').count()) !== 3) throw new Error('precompose should replace 1 of 3 with 1');
     await page.click('text=Open composition');
     await page.waitForSelector('.crumb');
     await page.click('button[aria-label="Back to parent composition"]');

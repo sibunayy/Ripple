@@ -11,7 +11,7 @@ import { TEMPLATES, animatorProps, type AnimShape, type AnimUnit } from '../text
 import { maskProp } from '../render/masks';
 import { layerBox } from '../shape/geometry';
 import { shapePath } from '../shape/geometry';
-import { evalProp, writeProp, toggleAnimated } from '../anim/interp';
+import { evalProp, isAnimated, setKey, writeProp, toggleAnimated } from '../anim/interp';
 import { reparent } from '../eval/evaluate';
 import { copyKeys, deleteKeys, moveKeys, nextKeyTime, pasteKeys, pruneRefs, setEaseOnKeys, setKeyValue, type ClipEntry, type KeyRef } from '../anim/keys';
 import type { Ease } from '../model/layer';
@@ -310,7 +310,9 @@ export function setEditablePath(id: string, next: BezPath, key = 'path') {
   const t = frame();
   editLayer(id, 'Edit path', (l) => {
     const e = editablePath(l, t); if (!e) return l;
-    const written = writePath(e.raw, next, t);
+    // Auto-key: a still path gets a key at the playhead holding the edited shape.
+    const base = autoKey.peek() && !e.raw.keys?.length ? { ...e.raw, keys: [{ t, nodes: e.raw.nodes }] } : e.raw;
+    const written = writePath(base, next, t);
     if (e.mask) return { ...l, masks: l.masks!.map((m) => (m.id === e.mask ? { ...m, path: written } : m)) };
     return { ...l, shape: { ...l.shape!, path: written } };
   }, `${key}:${id}`);
@@ -369,12 +371,20 @@ export function setTiming(id: string, inF: number, outF: number, key?: string) {
   }), key);
 }
 
-/** Write a transform value at the playhead (auto-keys when the property is animated). */
-export function setProp(id: string, prop: PropKey, value: number | number[], key?: string) {
+/** Auto-key mode: editing a still property keys it at the playhead (animated properties always key). */
+export const autoKey = signal(false);
+
+/**
+ * Write a value at the playhead. Animated properties key at t; with auto-key on, still properties start animating.
+ * `still` opts out of auto-key (used when a layer is being created, not animated).
+ */
+export function setProp(id: string, prop: PropKey, value: number | number[], key?: string, still = false) {
   const t = frame();
+  const auto = autoKey.peek() && !still;
   commit(`Edit ${prop}`, (p) => mapLayer(p, id, (l) => {
     const cur = propOf(l, prop); if (!cur) return l;
-    return withProp(l, prop, writeProp(cur as Prop<never>, t, value as never));
+    const next = auto && !isAnimated(cur as Prop<never>) ? setKey(cur as Prop<never>, t, value as never) : writeProp(cur as Prop<never>, t, value as never);
+    return withProp(l, prop, next);
   }), key ?? `${prop}:${id}`);
 }
 export const setTransform = setProp;
