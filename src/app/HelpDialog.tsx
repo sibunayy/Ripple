@@ -6,14 +6,14 @@ type Tab = 'guide' | 'keys' | 'formats' | 'about';
 
 export const SHORTCUTS: [string, string][] = [
   ['Space', 'Play / pause'], ['← / →', 'Step one frame (Shift: ten)'], ['Home / End', 'Jump to start / end'], ['Alt + ← / →', 'Previous / next keyframe'],
-  ['I / O', 'Set work-area in / out'], ['M', 'Add marker'], ['⌘Z / ⇧⌘Z', 'Undo / redo'], ['⌘S', 'Save now'], ['⌘D', 'Duplicate layer'], ['⌘C / ⌘V', 'Copy / paste keyframes'], ['⌘⇧ ← / →', 'Nudge selected keyframes'],
+  ['I / O', 'Set work-area in / out'], ['K', 'Toggle auto-key'], ['M', 'Add marker'], ['⌘Z / ⇧⌘Z', 'Undo / redo'], ['⌘S', 'Save now'], ['⌘D', 'Duplicate layer'], ['⌘C / ⌘V', 'Copy / paste keyframes'], ['⌘⇧ ← / →', 'Nudge selected keyframes'],
   ['Delete', 'Delete keyframes, node or layer'], ['V', 'Select tool'], ['H', 'Hand tool'], ['R · E · Y · S', 'Rectangle · Ellipse · Polygon · Star'], ['L', 'Line'], ['P', 'Pen (Enter finishes, Esc cancels)'], ['T', 'Text'],
   ['Shift while scaling', 'Uniform scale'], ['Shift while rotating', 'Snap to 15°'], ['Alt while dragging', 'Disable snapping'], ['Alt while dragging a handle', 'Break node symmetry'], ['?', 'This help'],
 ];
 
 const GUIDE: [string, string][] = [
   ['Draw & type', 'Pick a tool on the left of the viewer (or press R, E, Y, S, L, P, T). Drag to size a shape, tap for the default size. With the Pen, tap for corner points and drag for smooth curves; tap the first point to close. Double-tap a path to add a node.'],
-  ['Animate', 'Tap the ◷ stopwatch beside any property to start animating it. Move the playhead and change the value to add keyframes. Open the Graph tab in the timeline to shape the easing curves, or apply a ready-made motion from Presets.'],
+  ['Animate', 'Tap the ◷ stopwatch beside any property to start animating it. Or turn on ● Auto-key (K) in the timeline: while on, changing any property or dragging in the viewer sets a keyframe at the playhead. Move the playhead and change the value to add keyframes. Open the Graph tab in the timeline to shape the easing curves, or apply a ready-made motion from Presets.'],
   ['Layers, masks & mattes', 'Layers stack top to bottom. Give a layer a blend mode, masks (Inspector → Masks), a track matte, or pre-compose a selection into its own composition. Adjustment layers apply effects to everything below.'],
   ['Effects & colour', 'Effects tab → Add effect. Blur, glow, shadows, distortions, Levels, Curves, 3D LUTs and your own shaders are all keyframable. Turn on linear-light compositing in Settings for physically based blending.'],
   ['Media', 'Import images, SVG (as editable shapes), video and Lottie files from the Library or the Assets tab, or drop files onto the viewer.'],

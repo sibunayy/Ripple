@@ -281,12 +281,12 @@ export function Viewer() {
       if (!d.id) return;
       const key = `create:${d.id}`;
       if (d.tool === 'rect' || d.tool === 'ellipse') {
-        setProp(d.id, 'position', [(d.start[0] + cx) / 2, (d.start[1] + cy) / 2], key);
-        setProp(d.id, 'shape.size', [Math.max(1, Math.abs(cx - d.start[0])), Math.max(1, Math.abs(cy - d.start[1]))], key);
+        setProp(d.id, 'position', [(d.start[0] + cx) / 2, (d.start[1] + cy) / 2], key, true);
+        setProp(d.id, 'shape.size', [Math.max(1, Math.abs(cx - d.start[0])), Math.max(1, Math.abs(cy - d.start[1]))], key, true);
       } else {
         const r = Math.max(5, Math.hypot(cx - d.start[0], cy - d.start[1]));
-        setProp(d.id, 'shape.outer', r, key);
-        if (d.tool === 'star') setProp(d.id, 'shape.inner', r * 0.42, key);
+        setProp(d.id, 'shape.outer', r, key, true);
+        if (d.tool === 'star') setProp(d.id, 'shape.inner', r * 0.42, key, true);
       }
     } else if (d.kind === 'node' || d.kind === 'handle') {
       const pl = current.peek()!.layers.find((l) => l.id === d.id);

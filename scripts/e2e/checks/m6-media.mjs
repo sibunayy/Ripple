@@ -29,7 +29,7 @@ export const checks = [{
   name: 'import a PNG: asset recorded, layer fitted, pixels drawn, deduped on re-import',
   async run({ page }) {
     await page.setInputFiles('label[aria-label="Import media"] input', { name: 'red.png', mimeType: 'image/png', buffer: png(64, 64, [255, 0, 0, 255]) });
-    await page.waitForSelector('.layers li.on');
+    await page.waitForSelector('.tl-row.layer.on');
     await page.waitForFunction(() => window.__ripple.doc().layers.length === 1);
     await page.waitForTimeout(300); // bitmap decode + redraw
     const [mid, corner] = await sample(page, [[960, 540], [5, 5]]);
