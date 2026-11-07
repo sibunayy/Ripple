@@ -19,6 +19,7 @@ export const checks = [{
   name: 'dialogs trap focus: Tab cycles inside the export dialog',
   async run({ page }) {
     await page.click('button:has-text("Export")');
+    await page.waitForFunction(() => !!document.activeElement?.closest('.dialog')); // the dialog moves focus in after its first paint
     for (let i = 0; i < 25; i++) await page.keyboard.press('Tab');
     const inside = await page.evaluate(() => !!document.activeElement?.closest('.dialog'));
     if (!inside) throw new Error('focus escaped the dialog');
