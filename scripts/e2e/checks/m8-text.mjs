@@ -1,3 +1,4 @@
+import { UI } from '../ui.mjs';
 export const checks = [{
   name: 'text animator reveals characters as its offset sweeps; hidden text draws nothing',
   async run({ page }) {
@@ -21,7 +22,7 @@ export const checks = [{
 }, {
   name: 'UI: animate-in template adds an animator with keyframes',
   async run({ page }) {
-    const st = await page.locator('.stage').boundingBox();
+    const st = await page.locator(UI.stage).boundingBox();
     await page.keyboard.press('t'); await page.mouse.click(st.x + 200, st.y + 100);
     await page.waitForSelector('textarea.tbox');
     await page.keyboard.type('Hello world'); await page.keyboard.press('Escape');

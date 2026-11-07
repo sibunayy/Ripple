@@ -13,7 +13,7 @@ import { EasingPicker } from './EasingPicker';
 import { animatedProps, propLabel } from './props';
 import { allProps, propOf, type Layer, type Prop, type PropKey } from '../model/layer';
 
-const NAME_W = 210;
+const NAME_W = 270; // keep in sync with --name-w in theme.css
 const MIN_PPF = 0.5, MAX_PPF = 40;
 const px = (n: number) => `${n}px`;
 
@@ -164,7 +164,7 @@ function LayerRows({ layer: l, ppf, on, open }: { layer: Layer; ppf: number; on:
   const trackW = px(current.value!.settings.duration * ppf);
   return (
     <>
-      <div class={`tl-row layer ${on ? 'on' : ''} ${l.visible ? '' : 'dim'}`}
+      <div data-testid="layer-row" data-selected={on} class={`tl-row layer ${on ? 'on' : ''} ${l.visible ? '' : 'dim'}`}
         onClick={(e) => { const cur = selection.peek(); selection.value = e.shiftKey ? (on ? cur.filter((x) => x !== l.id) : [...cur, l.id]) : [l.id]; }}>
         <div class="tl-name" title={l.name}>
           <button class="chev" disabled={!props.length} aria-expanded={open} aria-label={open ? 'Collapse properties' : 'Expand properties'}

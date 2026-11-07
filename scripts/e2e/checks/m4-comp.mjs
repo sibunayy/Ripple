@@ -1,3 +1,4 @@
+import { UI } from '../ui.mjs';
 const near = (a, b, tol, what) => { if (Math.abs(a - b) > tol) throw new Error(`${what}: got ${a}, expected ${b}±${tol}`); };
 const RECT = { closed: true, nodes: [[16, 16], [48, 16], [48, 48], [16, 48]].map(([x, y]) => ({ p: [x, y], i: [0, 0], o: [0, 0] })) };
 const mask = (o = {}) => ({ id: 'm1', name: 'Mask 1', mode: 'add', invert: false, path: RECT, ...o });
@@ -69,9 +70,9 @@ export const checks = [{
     await page.click('text=＋ Rectangle');
     if (!(await page.locator('.mask').count())) throw new Error('mask not added');
     await page.click('text=＋ Adjust');
-    if ((await page.locator('.tl-row.layer').count()) !== 3) throw new Error('expected 3 layers');
+    if ((await page.locator(UI.layerRow).count()) !== 3) throw new Error('expected 3 layers');
     await page.locator('button[aria-label="Pre-compose selected layers"]').click();
-    if ((await page.locator('.tl-row.layer').count()) !== 3) throw new Error('precompose should replace 1 of 3 with 1');
+    if ((await page.locator(UI.layerRow).count()) !== 3) throw new Error('precompose should replace 1 of 3 with 1');
     await page.click('text=Open composition');
     await page.waitForSelector('.crumb');
     await page.click('button[aria-label="Back to parent composition"]');

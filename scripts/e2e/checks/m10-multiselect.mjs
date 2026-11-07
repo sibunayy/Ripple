@@ -1,3 +1,4 @@
+import { UI } from '../ui.mjs';
 // Multi-layer selection (marquee, shift-toggle, select-all) and group move.
 const setup = async (page) => {
   await page.click('text=＋ Solid'); await page.click('text=＋ Solid'); await page.click('text=＋ Solid');
@@ -10,10 +11,10 @@ const setup = async (page) => {
   await page.waitForTimeout(200);
 };
 const toScreen = (page, [x, y]) => page.evaluate(([x, y]) => {
-  const r = document.querySelector('.stage').getBoundingClientRect(), s = window.__ripple.doc().settings;
+  const r = document.querySelector('[data-testid=stage]').getBoundingClientRect(), s = window.__ripple.doc().settings;
   return [r.left + (x / s.width) * r.width, r.top + (y / s.height) * r.height];
 }, [x, y]);
-const selected = (page) => page.locator('.tl-row.layer.on').count();
+const selected = (page) => page.locator(UI.layerRowSelected).count();
 const positions = (page) => page.evaluate(() => window.__ripple.doc().layers.map((l) => l.transform.position.value));
 
 export const checks = [{

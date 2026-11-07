@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { chromium } from 'playwright';
 import { PRELUDE } from './prelude.mjs';
+import { UI } from './ui.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = 4179, URL_ = `http://localhost:${PORT}/Ripple/`;
@@ -32,7 +33,7 @@ try {
       await page.addInitScript(PRELUDE);
       await page.addInitScript(() => { try { if (!sessionStorage.getItem('rf-e2e-first')) { localStorage.setItem('rf-onboarded-v1', '1'); } } catch { /* ignore */ } });
       await page.goto(URL_);
-      await page.click('text=New project'); await page.waitForSelector('.editor'); await page.waitForFunction(() => window.__ripple?.renderer);
+      await page.click('text=New project'); await page.waitForSelector(UI.editor); await page.waitForFunction(() => window.__ripple?.renderer);
       try {
         await c.run({ page, ctx, URL_ });
         if (errors.length) throw new Error('console errors: ' + errors.join(' | '));

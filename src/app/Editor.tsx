@@ -75,8 +75,8 @@ export function Editor() {
   const toggle = (k: keyof typeof panels.value) => (panels.value = { ...panels.value, [k]: !panels.value[k] });
 
   return (
-    <div class={`editor ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
-      <header class="topbar">
+    <div data-testid="editor" class={`editor ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
+      <header class="topbar" data-testid="topbar">
         {activeComp.value
           ? <button class="btn" onClick={exitComp} aria-label="Back to parent composition">‹ {compPath().length > 1 ? compPath()[compPath().length - 2] : 'Main'}</button>
           : <button class="btn" onClick={() => void closeProject()} aria-label="Back to library">‹ Library</button>}
@@ -93,7 +93,7 @@ export function Editor() {
         <button class="btn primary" onClick={() => setExportOpen(true)}>Export{activeJobs() ? ` ●${activeJobs()}` : ''}</button>
       </header>
 
-      <section class="viewer">
+      <section class="viewer" data-testid="viewer-panel">
         <Viewer />
         <footer class="transport">
           <button class="btn" onClick={() => seek(0)} aria-label="Go to start">⏮</button>
@@ -106,7 +106,7 @@ export function Editor() {
         </footer>
       </section>
 
-      <aside class="panel right">
+      <aside class="panel right" data-testid="side-panel">
         <nav class="tabs" role="tablist">
           {(['inspector', 'effects', 'presets', 'assets'] as Tab[]).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
@@ -115,7 +115,7 @@ export function Editor() {
         {tab === 'inspector' ? <Inspector /> : tab === 'effects' ? <EffectsPanel /> : tab === 'presets' ? <PresetsPanel /> : <AssetsPanel />}
       </aside>
 
-      <section class="timeline"><Timeline /></section>
+      <section class="timeline" data-testid="timeline"><Timeline /></section>
 
       {notice.value && <div class="toast" role="status"><span>{notice.value}</span><button class="btn sm" onClick={() => (notice.value = '')}>OK</button></div>}
       {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}

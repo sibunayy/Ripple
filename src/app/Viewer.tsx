@@ -367,7 +367,7 @@ export function Viewer() {
 
   return (
     <div class="viewport" ref={wrap} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length) void importMedia(fs); }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-      <div class="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+      <div class="stage" data-testid="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
         <canvas ref={canvas} aria-label="Composition viewer" />
         <Overlay zoom={view.zoom} />
         <TextEditor />
