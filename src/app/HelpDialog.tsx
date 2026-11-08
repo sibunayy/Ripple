@@ -13,12 +13,12 @@ export const SHORTCUTS: [string, string][] = [
 
 const GUIDE: [string, string][] = [
   ['Draw & type', 'Pick a tool on the left of the viewer (or press R, E, Y, S, L, P, T). Drag to size a shape, tap for the default size. With the Pen, tap for corner points and drag for smooth curves; tap the first point to close. Double-tap a path to add a node.'],
-  ['Animate', 'Tap the ◷ stopwatch beside any property to start animating it. Or turn on ● Auto-key (K) in the timeline: while on, changing any property or dragging in the viewer sets a keyframe at the playhead. Move the playhead and change the value to add keyframes. Open the Graph tab in the timeline to shape the easing curves, or apply a ready-made motion from Presets.'],
+  ['Animate', 'Tap the stopwatch beside any property to start animating it. Or turn on Auto-key (K) in the timeline: while on, changing any property or dragging in the viewer sets a keyframe at the playhead. Move the playhead and change the value to add keyframes. Open the Graph tab in the timeline to shape the easing curves, or apply a ready-made motion from Presets.'],
   ['Layers, masks & mattes', 'Layers stack top to bottom. Give a layer a blend mode, masks (Inspector → Masks), a track matte, or pre-compose a selection into its own composition. Adjustment layers apply effects to everything below.'],
   ['Effects & colour', 'Effects tab → Add effect. Blur, glow, shadows, distortions, Levels, Curves, 3D LUTs and your own shaders are all keyframable. Turn on linear-light compositing in Settings for physically based blending.'],
   ['Media', 'Import images, SVG (as editable shapes), video and Lottie files from the Library or the Assets tab, or drop files onto the viewer.'],
   ['Export & backup', 'Export → MP4, WebM, GIF, image sequences, stills or Lottie. “Project backup (.ripple)” bundles the project, media and fonts into one file you can import on any device.'],
-  ['Touch & Pencil', 'Pinch to zoom the viewer, two fingers to pan. When you draw with the Pencil, resting palms are ignored. Numeric fields scrub: drag the small label sideways.'],
+  ['Touch & Pencil', 'Pinch to zoom the viewer, two fingers to pan. When you draw with the Pencil, resting palms are ignored. Numeric fields are sliders: drag anywhere on one to change it (hold the finger above or below for finer steps with a mouse or Pencil), tap to type an exact number. Tap with two fingers to undo, three to redo, and press and hold a layer, keyframe or the canvas for a menu.'],
 ];
 
 const FORMATS: [string, string][] = [

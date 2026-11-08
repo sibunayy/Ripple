@@ -110,12 +110,15 @@ input[type='color'] { width: 100%; height: var(--hit); border: 1px solid var(--l
 .prop.color { grid-template-columns: 70px 1fr; }
 .watch { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--muted); font-size: 15px; }
 .watch.on { color: var(--accent); border-color: var(--accent); } .watch.key { background: var(--accent); color: var(--accent-text); }
-.num { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px; }
-.num .lbl { font-size: 12px; color: var(--muted); cursor: ew-resize; padding: 8px 2px; touch-action: none; min-width: 10px; }
-.num input { min-height: 36px; padding: 0 8px; min-width: 0; }
-.num { min-width: 0; }
-.num .slide { grid-column: 1 / -1; width: 100%; min-height: 28px; margin: 0; accent-color: var(--accent); touch-action: pan-y; }
-@media (pointer: coarse) { .num .slide { min-height: 36px; } }
+.num { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; min-height: 40px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); overflow: hidden; cursor: ew-resize; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.num:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num .fill { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--accent) 28%, transparent); pointer-events: none; }
+.num .lbl, .num .val { position: relative; font-size: 13px; pointer-events: none; }
+.num .lbl { color: var(--muted); } .num .val { margin-left: auto; font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.num.editing { cursor: text; padding: 0; } .num.editing .lbl { padding-left: 12px; } .num.editing input { flex: 1; min-width: 0; min-height: 38px; border: 0; background: transparent; text-align: right; padding: 0 12px; }
+.watch, .lf, .chev, .eye { display: inline-flex; align-items: center; justify-content: center; }
+.ico { flex: none; vertical-align: middle; } .btn:has(> .ico) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 
 /* Timeline */
 .timeline { padding: 0 !important; display: grid; grid-template-rows: auto 1fr; }
@@ -182,7 +185,7 @@ input[type='color'] { width: 100%; height: var(--hit); border: 1px solid var(--l
 
 /* M3: tools, shapes, text */
 .tools { position: absolute; left: 12px; top: 12px; display: grid; gap: 4px; background: var(--surface) !important; border: 1px solid var(--line); border-radius: 12px; padding: 4px; z-index: 5; }
-.tools .btn { width: 40px; padding: 0; font-size: 17px; }
+.tools .btn { width: 40px; padding: 0; }
 .tbox { background: transparent; border: 1px dashed var(--accent); outline: none; resize: none; padding: 0; margin: 0; overflow: hidden; white-space: pre; z-index: 4; }
 .sec { display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
 .sec h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
@@ -237,8 +240,16 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
 .keys { border-collapse: collapse; width: 100%; } .keys th { text-align: left; font-weight: 400; padding: 6px 10px 6px 0; white-space: nowrap; width: 42%; } .keys td { padding: 6px 0; color: var(--muted); } .keys tr + tr { border-top: 1px solid var(--line); }
 kbd { font: 12px 'JetBrains Mono', ui-monospace, monospace; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
 .lic { list-style: none; margin: 8px 0; padding: 0; } .lic li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); color: var(--muted); } .lic li span:first-child { color: var(--text); }
-.onboard { text-align: center; } .onboard .glyph { font-size: 44px; color: var(--accent); } .onboard p { color: var(--muted); margin: 0; line-height: 1.5; }
+.onboard { text-align: center; } .onboard .glyph { color: var(--accent); display: flex; justify-content: center; } .onboard p { color: var(--muted); margin: 0; line-height: 1.5; }
 .dots { display: flex; gap: 6px; justify-content: center; } .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); } .dots i.on { background: var(--accent); }
-@media (pointer: coarse) { .btn.sm, .tools .btn { min-height: 44px; } .watch { width: 44px; height: 44px; } .num input { min-height: 44px; } .eye { width: 44px; height: 44px; } }
+@media (pointer: coarse) { .btn.sm, .tools .btn { min-height: 44px; } .watch { width: 44px; height: 44px; } .num { min-height: 44px; } .eye { width: 44px; height: 44px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; } }
 .hud { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 'JetBrains Mono', ui-monospace, monospace; color: var(--text); background: color-mix(in srgb, var(--surface) 85%, transparent) !important; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; pointer-events: none; z-index: 6; white-space: pre; }
+
+.sec-head { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 32px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; text-align: left; }
+.sec.shut { gap: 0; }
+@media (pointer: coarse) { .sec-head { min-height: 44px; } }
+.ctxmenu { position: fixed; z-index: 50; width: 200px; padding: 4px; display: grid; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+.ctxmenu button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ctxmenu button:hover:not(:disabled), .ctxmenu button:focus-visible { background: var(--surface-2); outline: none; } .ctxmenu button:disabled { opacity: .4; } .ctxmenu button.danger { color: var(--danger); }
+.tl-row.layer .tl-name, .tl-track { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }

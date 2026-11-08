@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { effect, signal } from '@preact/signals';
-import { flush, saveState, importMedia, addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText } from './state';
+import { flush, saveState, importMedia, addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText, pasteKeyframes, canUndo, canRedo, undo, redo } from './state';
 import { editingText, finishPen, nodeSel, penDraft, setTool, tool, TOOLS, type Tool } from './tools';
 import { distToPoly, flatten, insertNode, moveHandle, moveNode, nearestOnPath, node as mkNode } from '../shape/path';
 import { layoutText, fontString, textStyle } from '../text/metrics';
@@ -14,6 +14,8 @@ import { evalProp, isAnimated } from '../anim/interp';
 import { apply, invert, type Mat } from '../eval/affine';
 import { GLRenderer } from '../render/gl';
 import type { BezPath, Layer, Prop, Vec2 } from '../model/layer';
+import { Icon } from '../ui/Icon';
+import { contextProps } from '../ui/ContextMenu';
 
 const MAX_BUFFER = 2560; // longest side of the preview buffer; the canvas is CSS-scaled to the comp
 const MIN_ZOOM = 0.05, MAX_ZOOM = 16;
@@ -366,7 +368,12 @@ export function Viewer() {
   const zoomBy = (f: number) => { const el = wrap.current!; zoomAt(el.clientWidth / 2, el.clientHeight / 2, f); };
 
   return (
-    <div class="viewport" ref={wrap} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length) void importMedia(fs); }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+    <div class="viewport" ref={wrap} {...contextProps(() => (tool.peek() === 'select' ? [
+      { label: 'Select all', icon: 'copy', onSelect: () => { selection.value = current.peek()!.layers.filter((l) => !l.locked).map((l) => l.id); } },
+      { label: 'Paste keyframes', icon: 'layers', onSelect: pasteKeyframes },
+      { label: 'Undo', icon: 'undo-2', disabled: !canUndo(), onSelect: undo },
+      { label: 'Redo', icon: 'redo-2', disabled: !canRedo(), onSelect: redo },
+    ] : []))} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length) void importMedia(fs); }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
       <div class="stage" data-testid="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
         <canvas ref={canvas} aria-label="Composition viewer" />
         <Overlay zoom={view.zoom} />
@@ -377,7 +384,7 @@ export function Viewer() {
       {error && <p class="gl-error" role="alert">Rendering unavailable: {error}</p>}
       <div class="zoombar">
         <button class="btn sm" aria-pressed={showHud.value} aria-label="Performance overlay" title="Performance overlay" onClick={() => (showHud.value = !showHud.value)}>ƒ</button>
-        <button class="btn sm" onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">−</button>
+        <button class="btn sm" onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out"><Icon name="minus" /></button>
         <button class="btn sm" onClick={() => setView(fitView())}>{Math.round(view.zoom * 100)}%</button>
         <button class="btn sm" onClick={() => zoomBy(1.25)} aria-label="Zoom in">＋</button>
       </div>
@@ -459,12 +466,12 @@ function Tools() {
   return (
     <div class="tools" role="toolbar" aria-label="Tools">
       {TOOLS.map((t) => (
-        <button key={t.id} class="btn sm" aria-pressed={cur === t.id} title={`${t.label} (${t.key})`} aria-label={t.label} onClick={() => setTool(t.id)}>{t.icon}</button>
+        <button key={t.id} class="btn sm" aria-pressed={cur === t.id} title={`${t.label} (${t.key})`} aria-label={t.label} onClick={() => setTool(t.id)}><Icon name={t.icon} /></button>
       ))}
       {draft && (
         <>
-          <button class="btn sm primary" aria-label="Finish path" onClick={() => finishPen(false)}>✓</button>
-          <button class="btn sm" aria-label="Close path" disabled={draft.nodes.length < 3} onClick={() => finishPen(true)}>⭘</button>
+          <button class="btn sm primary" aria-label="Finish path" onClick={() => finishPen(false)}><Icon name="check" /></button>
+          <button class="btn sm" aria-label="Close path" disabled={draft.nodes.length < 3} onClick={() => finishPen(true)}><Icon name="circle-dot" /></button>
         </>
       )}
     </div>
