@@ -9,6 +9,7 @@ import { ShaderEditor } from './ShaderEditor';
 import { parseUniforms } from '../render/shader';
 import { propOf, type Layer, type Vec2 } from '../model/layer';
 import { EFFECTS, EFFECT_BY_TYPE, defaultCurves, curveLUT, paramKey, type Curves, type ParamDef } from '../render/effects';
+import { Icon } from '../ui/Icon';
 
 export function EffectsPanel() {
   const p = current.value!;
@@ -31,11 +32,11 @@ export function EffectsPanel() {
         return (
           <section class={`sec fx ${e.enabled ? '' : 'off'}`} key={e.id}>
             <div class="seg">
-              <button class="btn sm" aria-pressed={e.enabled} aria-label={e.enabled ? 'Disable effect' : 'Enable effect'} onClick={() => toggleEffect(l.id, e.id)}>{e.enabled ? '●' : '○'}</button>
+              <button class="btn sm" aria-pressed={e.enabled} aria-label={e.enabled ? 'Disable effect' : 'Enable effect'} onClick={() => toggleEffect(l.id, e.id)}><Icon name="power" /></button>
               <h3 class="fxname">{def.name}</h3>
-              <button class="btn sm" disabled={i === 0} aria-label="Move effect up" onClick={() => moveEffect(l.id, e.id, -1)}>↑</button>
-              <button class="btn sm" disabled={i === all.length - 1} aria-label="Move effect down" onClick={() => moveEffect(l.id, e.id, 1)}>↓</button>
-              <button class="btn sm danger" aria-label="Remove effect" onClick={() => removeEffect(l.id, e.id)}>✕</button>
+              <button class="btn sm" disabled={i === 0} aria-label="Move effect up" onClick={() => moveEffect(l.id, e.id, -1)}><Icon name="arrow-up" /></button>
+              <button class="btn sm" disabled={i === all.length - 1} aria-label="Move effect down" onClick={() => moveEffect(l.id, e.id, 1)}><Icon name="arrow-down" /></button>
+              <button class="btn sm danger" aria-label="Remove effect" onClick={() => removeEffect(l.id, e.id)}><Icon name="trash-2" /></button>
             </div>
             {def.type === 'shader' && <ShaderEditor code={(e.data as { code: string } | undefined)?.code ?? ''} onCode={(c) => setShaderCode(l.id, e.id, c)} />}
             {(def.type === 'shader' ? parseUniforms((e.data as { code: string } | undefined)?.code ?? '').map((d): ParamDef => ({ key: d.name, label: d.name, kind: d.type === 'vec2' ? 'vec2' : d.type === 'color' ? 'color' : 'number', def: d.def as number, min: d.min, max: d.max, step: d.type === 'float' ? (d.max - d.min) / 100 : 1 })) : def.params).map((pd) => <Param key={pd.key} layer={l} effectId={e.id} def={pd} t={t} />)}
@@ -53,7 +54,7 @@ function Param({ layer: l, effectId, def, t }: { layer: Layer; effectId: string;
   if (!prop) return null;
   const v = valueAt(l, k, t) as unknown;
   const anim = isAnimated(prop);
-  const watch = <button class={`watch ${anim ? 'on' : ''} ${hasKeyAt(prop, t) ? 'key' : ''}`} aria-pressed={anim} aria-label={`${anim ? 'Remove animation from' : 'Animate'} ${def.label}`} onClick={() => toggleStopwatch(l.id, k)}>◷</button>;
+  const watch = <button class={`watch ${anim ? 'on' : ''} ${hasKeyAt(prop, t) ? 'key' : ''}`} aria-pressed={anim} aria-label={`${anim ? 'Remove animation from' : 'Animate'} ${def.label}`} onClick={() => toggleStopwatch(l.id, k)}><Icon name="timer" size={16} /></button>;
   if (def.kind === 'number') return <div class="prop"><span class="pname">{def.label}</span>{watch}<div class="fields"><NumField label="" aria={def.label} value={v as number} step={def.step ?? 1} min={def.min} max={def.max} onChange={(x) => setProp(l.id, k, x)} /></div></div>;
   if (def.kind === 'select') return <label class="prop"><span class="pname">{def.label}</span><span /><div class="fields one"><select value={v as number} onChange={(e) => setProp(l.id, k, Number((e.target as HTMLSelectElement).value), undefined, true)}>{def.options!.map((o, i) => <option key={o} value={i}>{o}</option>)}</select></div></label>;
   if (def.kind === 'vec2') { const q = v as Vec2; return <div class="prop"><span class="pname">{def.label}</span>{watch}<div class="fields"><NumField label="X" aria={`${def.label} X`} value={q[0]} onChange={(x) => setProp(l.id, k, [x, q[1]])} /><NumField label="Y" aria={`${def.label} Y`} value={q[1]} onChange={(y) => setProp(l.id, k, [q[0], y])} /></div></div>; }

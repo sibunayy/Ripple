@@ -4,6 +4,7 @@ import { applyPresetToSelection, current, selection } from './state';
 import { BUILTIN_PRESETS, presetFromLayer, type Preset } from '../anim/presets';
 import { deletePresetRecord, loadPresetRecords, savePresetRecord } from '../io/store';
 import { newId } from '../model/project';
+import { Icon } from '../ui/Icon';
 
 const userPresets = signal<Preset[]>([]);
 const load = async () => {
@@ -53,8 +54,8 @@ export function PresetsPanel() {
               <span class="chipbtn" key={pr.id}>
                 <button class="btn sm" disabled={!l} onClick={() => applyPresetToSelection(pr)} title={`${pr.duration.toFixed(1)} s`}>{pr.name}</button>
                 {pr.category === 'Custom' && <>
-                  <button class="btn sm" aria-label={`Export ${pr.name}`} onClick={() => exportOne(pr)}>⇪</button>
-                  <button class="btn sm danger" aria-label={`Delete ${pr.name}`} onClick={() => void deletePresetRecord(pr.id).then(load)}>✕</button>
+                  <button class="btn sm" aria-label={`Export ${pr.name}`} onClick={() => exportOne(pr)}><Icon name="share" /></button>
+                  <button class="btn sm danger" aria-label={`Delete ${pr.name}`} onClick={() => void deletePresetRecord(pr.id).then(load)}><Icon name="trash-2" /></button>
                 </>}
               </span>
             ))}</div>

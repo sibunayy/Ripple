@@ -16,6 +16,16 @@ import { maskProp } from '../render/masks';
 import type { MaskMode, MatteMode } from '../model/layer';
 import { fonts, importFont } from '../text/fonts';
 import { deleteSelectedNode } from './tools';
+import { Icon } from '../ui/Icon';
+import { signal } from '@preact/signals';
+
+/** Collapsed inspector sections (by title), remembered across sessions. Module-level because Section is re-created each render. */
+const SEC_KEY = 'rf-inspector-collapsed';
+const collapsed = signal<Record<string, boolean>>((() => { try { return JSON.parse(localStorage.getItem(SEC_KEY) || '{}'); } catch { return {}; } })());
+const toggleSection = (title: string) => {
+  collapsed.value = { ...collapsed.value, [title]: !collapsed.value[title] };
+  try { localStorage.setItem(SEC_KEY, JSON.stringify(collapsed.value)); } catch { /* storage unavailable */ }
+};
 
 export function Inspector() {
   const p = current.value!;
@@ -28,7 +38,7 @@ export function Inspector() {
     const anim = isAnimated(prop);
     return (
       <button class={`watch ${anim ? 'on' : ''} ${hasKeyAt(prop, t) ? 'key' : ''}`} aria-pressed={anim}
-        aria-label={`${anim ? 'Remove animation from' : 'Animate'} ${k}`} onClick={() => toggleStopwatch(l.id, k)}>◷</button>
+        aria-label={`${anim ? 'Remove animation from' : 'Animate'} ${k}`} onClick={() => toggleStopwatch(l.id, k)}><Icon name="timer" size={16} /></button>
     );
   };
   const has = (k: PropKey) => !!propOf(l, k);
@@ -56,7 +66,15 @@ export function Inspector() {
     );
   };
   const sh = l.shape;
-  const Section = ({ title, children }: { title: string; children: unknown }) => <section class="sec"><h3>{title}</h3>{children as never}</section>;
+  const Section = ({ title, children }: { title: string; children: unknown }) => {
+    const shut = collapsed.value[title];
+    return (
+      <section class={`sec ${shut ? 'shut' : ''}`}>
+        <h3><button class="sec-head" aria-expanded={!shut} onClick={() => toggleSection(title)}><Icon name={shut ? 'chevron-right' : 'chevron-down'} size={14} />{title}</button></h3>
+        {!shut && (children as never)}
+      </section>
+    );
+  };
 
   return (
     <div class="inspector">
@@ -95,12 +113,12 @@ export function Inspector() {
               <select aria-label="Mask mode" value={m.mode} onChange={(e) => editMask(l.id, m.id, { mode: (e.target as HTMLSelectElement).value as MaskMode })}>
                 {(['add', 'subtract', 'intersect', 'lighten', 'darken', 'difference', 'none'] as const).map((x) => <option key={x} value={x}>{x}</option>)}
               </select>
-              <button class="btn sm" aria-pressed={m.invert} aria-label="Invert mask" onClick={() => editMask(l.id, m.id, { invert: !m.invert })}>⇄</button>
-              <button class="btn sm danger" aria-label="Delete mask" onClick={() => deleteMask(l.id, m.id)}>✕</button>
+              <button class="btn sm" aria-pressed={m.invert} aria-label="Invert mask" onClick={() => editMask(l.id, m.id, { invert: !m.invert })}><Icon name="arrow-left-right" /></button>
+              <button class="btn sm danger" aria-label="Delete mask" onClick={() => deleteMask(l.id, m.id)}><Icon name="trash-2" /></button>
             </div>
             {selMask.value === m.id && <>
               {num(maskProp(m.id, 'opacity'), 'Opacity', 1, 0, 100)}{num(maskProp(m.id, 'feather'), 'Feather', 1, 0)}{num(maskProp(m.id, 'expansion'), 'Expansion', 1)}
-              <div class="seg wrap"><button class="btn sm" aria-pressed={!!m.path.keys?.length} onClick={() => togglePathAnim(l.id)}>◷ Animate shape</button></div>
+              <div class="seg wrap"><button class="btn sm" aria-pressed={!!m.path.keys?.length} onClick={() => togglePathAnim(l.id)}><Icon name="timer" size={16} /> Animate shape</button></div>
               <PathTools layer={l} />
             </>}
           </div>
@@ -191,7 +209,7 @@ export function Inspector() {
               <div class="seg"><strong class="fxname">{a.name}</strong>
                 <select aria-label="Animate by" value={a.unit} onChange={(e) => editAnimator(l.id, a.id, { unit: (e.target as HTMLSelectElement).value as AnimUnit })}><option value="chars">Characters</option><option value="words">Words</option><option value="lines">Lines</option></select>
                 <select aria-label="Selector shape" value={a.shape} onChange={(e) => editAnimator(l.id, a.id, { shape: (e.target as HTMLSelectElement).value as AnimShape })}>{(['square', 'ramp', 'triangle', 'round', 'smooth'] as const).map((s) => <option key={s} value={s}>{s}</option>)}</select>
-                <button class="btn sm danger" aria-label="Remove animator" onClick={() => removeAnimator(l.id, a.id)}>✕</button></div>
+                <button class="btn sm danger" aria-label="Remove animator" onClick={() => removeAnimator(l.id, a.id)}><Icon name="trash-2" /></button></div>
               {num(`ta:${a.id}:start`, 'Start %', 1)}{num(`ta:${a.id}:end`, 'End %', 1)}{num(`ta:${a.id}:offset`, 'Offset %', 1)}
               {vec(`ta:${a.id}:position`, 'Position')}{vec(`ta:${a.id}:scale`, 'Scale')}{num(`ta:${a.id}:rotation`, 'Rotation', 1)}{num(`ta:${a.id}:opacity`, 'Opacity', 1, 0, 100)}
               <label class="check"><input type="checkbox" checked={!!a.colorOn} onChange={(e) => editAnimator(l.id, a.id, { colorOn: (e.target as HTMLInputElement).checked })} /> Colour</label>

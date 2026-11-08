@@ -18,6 +18,9 @@ import { AssetsPanel } from './AssetsPanel';
 import { HelpDialog } from './HelpDialog';
 import { useDialog } from '../ui/dialog';
 import { FPS_PRESETS, SIZE_PRESETS, fromHex, timecode, toHex } from '../model/project';
+import { Icon } from '../ui/Icon';
+import { ContextMenuHost } from '../ui/ContextMenu';
+import { installGestures } from './gestures';
 
 type Tab = 'inspector' | 'effects' | 'presets' | 'assets';
 const panels = signal({ right: true, timeline: true });
@@ -71,6 +74,7 @@ export function Editor() {
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === '?' && !typing(e.target)) { e.preventDefault(); setHelpOpen(true); } }; addEventListener('keydown', k); return () => removeEventListener('keydown', k); }, []);
   const [tab, setTab] = useState<Tab>('inspector');
   useShortcuts();
+  useEffect(() => installGestures(), []);
   useEffect(() => () => pause(), []);
   const toggle = (k: keyof typeof panels.value) => (panels.value = { ...panels.value, [k]: !panels.value[k] });
 
@@ -78,16 +82,16 @@ export function Editor() {
     <div data-testid="editor" class={`editor ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
       <header class="topbar" data-testid="topbar">
         {activeComp.value
-          ? <button class="btn" onClick={exitComp} aria-label="Back to parent composition">‹ {compPath().length > 1 ? compPath()[compPath().length - 2] : 'Main'}</button>
-          : <button class="btn" onClick={() => void closeProject()} aria-label="Back to library">‹ Library</button>}
+          ? <button class="btn" onClick={exitComp} aria-label="Back to parent composition"><Icon name="chevron-left" /> {compPath().length > 1 ? compPath()[compPath().length - 2] : 'Main'}</button>
+          : <button class="btn" onClick={() => void closeProject()} aria-label="Back to library"><Icon name="chevron-left" /> Library</button>}
         {activeComp.value && <strong class="crumb">{compPath()[compPath().length - 1]}</strong>}
         <input class="title" value={p.name} aria-label="Project name" onChange={(e) => rename((e.target as HTMLInputElement).value)} />
         <span class={`save ${saveState.value}`} role="status">{SAVE_LABEL[saveState.value]}</span>
         <span class="spacer" />
-        <button class="btn" disabled={!canUndo()} onClick={undo} title={undoLabel()} aria-label="Undo">↶</button>
-        <button class="btn" disabled={!canRedo()} onClick={redo} aria-label="Redo">↷</button>
-        <button class="btn" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')}>Timeline</button>
-        <button class="btn" aria-pressed={panels.value.right} onClick={() => toggle('right')}>Panel</button>
+        <button class="btn" disabled={!canUndo()} onClick={undo} title={undoLabel()} aria-label="Undo"><Icon name="undo-2" /></button>
+        <button class="btn" disabled={!canRedo()} onClick={redo} aria-label="Redo"><Icon name="redo-2" /></button>
+        <button class="btn" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')}><Icon name="panel-bottom" /> Timeline</button>
+        <button class="btn" aria-pressed={panels.value.right} onClick={() => toggle('right')}><Icon name="panel-right" /> Panel</button>
         <button class="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
         <button class="btn" aria-label="Help and shortcuts" onClick={() => setHelpOpen(true)}>?</button>
         <button class="btn primary" onClick={() => setExportOpen(true)}>Export{activeJobs() ? ` ●${activeJobs()}` : ''}</button>
@@ -96,10 +100,10 @@ export function Editor() {
       <section class="viewer" data-testid="viewer-panel">
         <Viewer />
         <footer class="transport">
-          <button class="btn" onClick={() => seek(0)} aria-label="Go to start">⏮</button>
-          <button class="btn" onClick={() => step(-1)} aria-label="Previous frame">◀︎</button>
-          <button class="btn primary" onClick={() => (playing.value ? pause() : play())} aria-label={playing.value ? 'Pause' : 'Play'}>{playing.value ? '❚❚' : '▶︎'}</button>
-          <button class="btn" onClick={() => step(1)} aria-label="Next frame">▶︎▶︎</button>
+          <button class="btn" onClick={() => seek(0)} aria-label="Go to start"><Icon name="skip-back" /></button>
+          <button class="btn" onClick={() => step(-1)} aria-label="Previous frame"><Icon name="step-back" /></button>
+          <button class="btn primary" onClick={() => (playing.value ? pause() : play())} aria-label={playing.value ? 'Pause' : 'Play'}><Icon name={playing.value ? 'pause' : 'play'} /></button>
+          <button class="btn" onClick={() => step(1)} aria-label="Next frame"><Icon name="step-forward" /></button>
           <button class="btn sm" aria-pressed={mbPreview.value} title="Preview motion blur (needs layers with motion blur and the project setting on)" onClick={() => (mbPreview.value = !mbPreview.value)}>MB</button>
           <span class="tc" aria-label="Current time">{timecode(Math.floor(playhead.value), s.fps)}</span>
           <span class="hint">/ {timecode(s.duration, s.fps)} · {s.width}×{s.height} · {s.fps} fps</span>
@@ -117,6 +121,7 @@ export function Editor() {
 
       <section class="timeline" data-testid="timeline"><Timeline /></section>
 
+      <ContextMenuHost />
       {notice.value && <div class="toast" role="status"><span>{notice.value}</span><button class="btn sm" onClick={() => (notice.value = '')}>OK</button></div>}
       {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}

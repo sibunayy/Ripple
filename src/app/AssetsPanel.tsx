@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { addAssetLayer, assetUsage, current, importMedia, removeAsset } from './state';
 import { getAssetBlob } from '../io/assets';
 import type { AssetMeta } from '../model/project';
+import { Icon } from '../ui/Icon';
 
 function Thumb({ a }: { a: AssetMeta }) {
   const [url, setUrl] = useState('');
@@ -10,7 +11,7 @@ function Thumb({ a }: { a: AssetMeta }) {
     if (a.kind !== 'video') void getAssetBlob(a.hash).then((b) => { if (b && !dead) { u = URL.createObjectURL(b); setUrl(u); } });
     return () => { dead = true; if (u) URL.revokeObjectURL(u); };
   }, [a.hash]);
-  return <div class="athumb">{url ? <img src={url} alt="" /> : <span>{a.kind === 'video' ? '▶︎' : '…'}</span>}</div>;
+  return <div class="athumb">{url ? <img src={url} alt="" /> : <span>{a.kind === 'video' ? <Icon name="film" /> : '…'}</span>}</div>;
 }
 
 export function AssetsPanel() {
@@ -20,7 +21,7 @@ export function AssetsPanel() {
   return (
     <div class="inspector">
       <h2>Assets</h2>
-      <label class="btn sm filebtn">＋ Import media…
+      <label class="btn sm filebtn"><Icon name="plus" /> Import media…
         <input type="file" multiple accept="image/*,video/*,.svg,.heic,.avif" hidden onChange={(e) => { const fs = Array.from((e.target as HTMLInputElement).files ?? []); if (fs.length) void importMedia(fs); (e.target as HTMLInputElement).value = ''; }} />
       </label>
       {!list.length && <p class="hint">Images, SVG and video you import appear here. You can also drop files onto the viewer.</p>}
@@ -35,7 +36,7 @@ export function AssetsPanel() {
                 <span>{used ? `Used in ${used} layer${used > 1 ? 's' : ''}` : 'Unused'}</span></div>
               <div class="seg">
                 <button class="btn sm" onClick={() => addAssetLayer(a)} aria-label={`Add ${a.name} to composition`}>Add</button>
-                <button class="btn sm danger" disabled={used > 0} onClick={() => removeAsset(a.hash)} aria-label={`Remove ${a.name}`}>✕</button>
+                <button class="btn sm danger" disabled={used > 0} onClick={() => removeAsset(a.hash)} aria-label={`Remove ${a.name}`}><Icon name="trash-2" /></button>
               </div>
             </li>
           );

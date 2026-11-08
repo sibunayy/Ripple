@@ -171,8 +171,10 @@ export const checks = [{
     await page.waitForSelector('.fx .prop >> text=strength');
     await page.locator('.fx .prop', { has: page.locator('.pname:text("strength")') }).locator('button.watch').click();
     await page.keyboard.press('End');
-    await page.locator('.fx .prop', { has: page.locator('.pname:text("strength")') }).locator('input').first().fill('0.9');
-    await page.locator('.fx .prop', { has: page.locator('.pname:text("strength")') }).locator('input').first().press('Tab');
+    const strength = page.locator('.fx .prop', { has: page.locator('.pname:text("strength")') });
+    await strength.locator('[role=slider]').first().click(); // tap the slider pill → number input
+    await strength.locator('input').first().fill('0.9');
+    await strength.locator('input').first().press('Tab');
     if (!(await page.locator('.tl-row.sub').count())) throw new Error('shader parameter did not get keyframes');
     await page.click('button:has-text("Export")');
     await page.selectOption('.dialog select >> nth=0', 'lottie');
@@ -196,13 +198,18 @@ export const checks = [{
     if (await page.locator('.panel.left').count()) throw new Error('left layers panel should be gone');
     await page.click('text=＋ Solid');
     const keys = () => page.evaluate(() => { const o = window.__ripple.doc().layers[0].transform.opacity; return 'keys' in o ? o.keys.length : 0; });
-    const field = page.locator('input[aria-label="Opacity"]').first();
-    await field.fill('50'); await field.press('Tab');
+    // NumField is a slider pill: tap it to open the number input, type, Tab to commit.
+    const type = async (v) => {
+      await page.locator('[role=slider][aria-label="Opacity"]').first().click();
+      const field = page.locator('input[aria-label="Opacity"]').first();
+      await field.fill(v); await field.press('Tab');
+    };
+    await type('50');
     if ((await keys()) !== 0) throw new Error('edit with auto-key off must not key');
     await page.click('button:has-text("Auto-key")');
     if ((await page.locator('button:has-text("Auto-key")').getAttribute('aria-pressed')) !== 'true') throw new Error('auto-key should be on');
     await page.evaluate(() => document.activeElement?.blur()); await page.keyboard.press('End');
-    await field.fill('20'); await field.press('Tab');
+    await type('20');
     if ((await keys()) !== 1) throw new Error('auto-key should create one key, got ' + (await keys()));
     await page.locator('input[aria-label="Layer name"]').fill('Renamed');
     await page.click('button[aria-label="Duplicate layer"]');

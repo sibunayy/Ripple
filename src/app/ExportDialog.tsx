@@ -5,6 +5,7 @@ import { workRange } from '../model/project';
 import { KIND_INFO, type ExportKind } from '../export/export';
 import { cancel, dismiss, enqueue, jobs, restart } from '../export/queue';
 import { downloadBlob, shareBlob } from '../io/download';
+import { Icon } from '../ui/Icon';
 
 const ORDER: ExportKind[] = ['mp4', 'webm', 'gif', 'png-seq', 'jpeg-seq', 'webp-seq', 'png', 'jpeg', 'webp', 'lottie', 'ripple'];
 
@@ -75,7 +76,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                     {j.status === 'done' && j.result && <><button class="btn sm" onClick={() => downloadBlob(j.result!.blob, j.result!.name)}>Download</button><button class="btn sm primary" onClick={() => void shareBlob(j.result!.blob, j.result!.name, j.result!.mime)}>Share…</button></>}
                     {(j.status === 'running' || j.status === 'queued') && <button class="btn sm danger" onClick={() => cancel(j.id)}>Cancel</button>}
                     {(j.status === 'interrupted' || j.status === 'error' || j.status === 'cancelled') && <button class="btn sm" onClick={() => void restart(j.id)}>Restart</button>}
-                    {j.status !== 'running' && <button class="btn sm" aria-label="Remove job" onClick={() => dismiss(j.id)}>✕</button>}
+                    {j.status !== 'running' && <button class="btn sm" aria-label="Remove job" onClick={() => dismiss(j.id)}><Icon name="x" /></button>}
                   </div>
                 </li>
               ))}

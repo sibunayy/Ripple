@@ -3,18 +3,19 @@ import { signal } from '@preact/signals';
 import type { BezPath } from '../model/layer';
 import { addShape, current, editablePath, selection, setPath } from './state';
 import { removeNode } from '../shape/path';
+import type { IconName } from '../ui/Icon';
 
 export type Tool = 'select' | 'hand' | 'rect' | 'ellipse' | 'polygon' | 'star' | 'line' | 'pen' | 'text';
-export const TOOLS: { id: Tool; icon: string; label: string; key: string }[] = [
-  { id: 'select', icon: '↖', label: 'Select', key: 'V' },
-  { id: 'hand', icon: '✋', label: 'Hand', key: 'H' },
-  { id: 'rect', icon: '▭', label: 'Rectangle', key: 'R' },
-  { id: 'ellipse', icon: '◯', label: 'Ellipse', key: 'E' },
-  { id: 'polygon', icon: '⬠', label: 'Polygon', key: 'Y' },
-  { id: 'star', icon: '☆', label: 'Star', key: 'S' },
-  { id: 'line', icon: '╱', label: 'Line', key: 'L' },
-  { id: 'pen', icon: '✒︎', label: 'Pen', key: 'P' },
-  { id: 'text', icon: 'T', label: 'Text', key: 'T' },
+export const TOOLS: { id: Tool; icon: IconName; label: string; key: string }[] = [
+  { id: 'select', icon: 'mouse-pointer-2', label: 'Select', key: 'V' },
+  { id: 'hand', icon: 'hand', label: 'Hand', key: 'H' },
+  { id: 'rect', icon: 'square', label: 'Rectangle', key: 'R' },
+  { id: 'ellipse', icon: 'circle', label: 'Ellipse', key: 'E' },
+  { id: 'polygon', icon: 'pentagon', label: 'Polygon', key: 'Y' },
+  { id: 'star', icon: 'star', label: 'Star', key: 'S' },
+  { id: 'line', icon: 'slash', label: 'Line', key: 'L' },
+  { id: 'pen', icon: 'pen-tool', label: 'Pen', key: 'P' },
+  { id: 'text', icon: 'type', label: 'Text', key: 'T' },
 ];
 export const tool = signal<Tool>('select');
 /** Selected node of the selected path layer. */

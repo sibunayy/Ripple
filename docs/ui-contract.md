@@ -11,6 +11,12 @@ RippleFlow's engine (document model, evaluation, renderer, export, I/O) is separ
 | Components | `src/app/*.tsx`, `src/ui/*.tsx` | Free to restructure, restyle and replace. |
 | Theme | `src/ui/theme.css` | All colours, sizes and shadows come from `:root` tokens. |
 
+## Controls added by the touch overhaul
+- `NumField` renders `role=slider` with `aria-label` = the property name (e.g. `Position X`); tapping it swaps in an `input[aria-label=<same name>]` (type to commit with Enter/Tab/blur, Escape cancels). Checks must click the slider before filling the input.
+- Icons are inline SVG (`src/ui/Icon.tsx`, Lucide data in `icons-data.ts`) with `aria-hidden`; icon-only buttons keep their `aria-label`.
+- Inspector sections are `button.sec-head[aria-expanded]`; context menus are `[role=menu]` / `[role=menuitem]` opened by long-press or right-click.
+- Touch gestures (`src/app/gestures.ts`): two-finger tap = undo, three-finger tap = redo, touch pointers only.
+
 ## Must-keep behaviour
 
 - **Landmarks** (`data-testid`): `library`, `project-card`, `editor`, `topbar`, `viewer-panel`, `stage`, `side-panel`, `timeline`, `layer-row` (with `data-selected`). The stage contains the GL `<canvas aria-label="Composition viewer">` and the `svg.overlay`; pointer maths in `Viewer.tsx` assumes the stage is scaled by CSS transform.
