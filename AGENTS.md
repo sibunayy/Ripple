@@ -10,6 +10,12 @@ RippleFlow: iPad-first motion-graphics PWA (Preact + signals, WebGL2, no backend
 - Run e2e and shots on your lane's ports so parallel agents don't collide (`--strictPort`): set `E2E_PORT` and `SHOTS_PORT`. Defaults 4179/4180; gemini lane 4279/4280; deepseek lane 4379/4380.
 - Commit small and often on your branch. Don't push or merge to `main`; hand back with the verification results.
 
+## Windows / Node setup
+
+- CI uses Node 22; the fnm default on this machine is Node 26. `fnm exec --using 22 npm ...` fails ("program not found"), so run npm as `fnm exec --using 22 cmd /c "npm run typecheck"`, or `fnm use 22` first.
+- Playwright Chromium is already installed (`npx playwright install chromium` was run once).
+- `scripts/e2e/run.mjs` and `scripts/shots.mjs` spawn vite via `process.execPath` (not `npx`) so they work on Windows. Keep it that way.
+
 ## Commands
 
 - CI order: `npm run typecheck` → `npm test` → `npm run build` → `npm run size` → `npm run e2e`.
