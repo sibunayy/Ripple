@@ -16,6 +16,10 @@ import { EffectsPanel } from './EffectsPanel';
 import { PresetsPanel } from './PresetsPanel';
 import { AssetsPanel } from './AssetsPanel';
 import { HelpDialog } from './HelpDialog';
+import { EasingPicker } from './EasingPicker';
+import { ToolRail } from './ToolRail';
+import { PresetsDrawer } from './PresetsDrawer';
+import { drawerOpen, easingOpen, theme, cycleTheme, themeLabel } from './uistate';
 import { useDialog } from '../ui/dialog';
 import { FPS_PRESETS, SIZE_PRESETS, fromHex, timecode, toHex } from '../model/project';
 import { Icon } from '../ui/Icon';
@@ -23,8 +27,12 @@ import { ContextMenuHost } from '../ui/ContextMenu';
 import { installGestures } from './gestures';
 
 type Tab = 'inspector' | 'effects' | 'presets' | 'assets';
-const panels = signal({ right: true, timeline: true });
+const panels = signal({ right: typeof window === 'undefined' ? true : window.innerWidth > 980, timeline: true });
 const SAVE_LABEL = { saved: 'Saved', dirty: 'Unsaved…', saving: 'Saving…', error: 'Save failed' } as const;
+const TYPE_LABEL: Record<string, string> = {
+  shape: 'Shape layer', text: 'Text layer', solid: 'Solid layer', precomp: 'Composition', adjustment: 'Adjustment layer',
+  shader: 'Shader layer', image: 'Image layer', video: 'Video layer', null: 'Null layer',
+};
 const typing = (t: EventTarget | null) => t instanceof HTMLElement && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName) && (t as HTMLInputElement).type !== 'color';
 
 function useShortcuts() {
@@ -77,51 +85,74 @@ export function Editor() {
   useEffect(() => installGestures(), []);
   useEffect(() => () => pause(), []);
   const toggle = (k: keyof typeof panels.value) => (panels.value = { ...panels.value, [k]: !panels.value[k] });
+  const selLayer = p.layers.find((l) => l.id === selection.value[0]);
+  const chip = selLayer && (selLayer.type === 'solid' || selLayer.type === 'shape' || selLayer.type === 'text' || selLayer.type === 'precomp')
+    ? `rgb(${selLayer.color.slice(0, 3).map((c) => Math.round(c * 255)).join()})` : 'var(--accent)';
 
   return (
-    <div data-testid="editor" class={`editor ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'}`}>
+    <div data-testid="editor" class={`editor ${panels.value.right ? '' : 'no-right'} ${panels.value.timeline ? '' : 'no-timeline'} ${drawerOpen.value ? '' : 'no-drawer'}`}>
       <header class="topbar" data-testid="topbar">
         {activeComp.value
-          ? <button class="btn" onClick={exitComp} aria-label="Back to parent composition"><Icon name="chevron-left" /> {compPath().length > 1 ? compPath()[compPath().length - 2] : 'Main'}</button>
-          : <button class="btn" onClick={() => void closeProject()} aria-label="Back to library"><Icon name="chevron-left" /> Library</button>}
+          ? <button class="btn ghost" onClick={exitComp} aria-label="Back to parent composition"><Icon name="chevron-left" size={16} /> {compPath().length > 1 ? compPath()[compPath().length - 2] : 'Main'}</button>
+          : <button class="btn ghost" onClick={() => void closeProject()} aria-label="Back to library"><Icon name="chevron-left" size={16} /> Library</button>}
         {activeComp.value && <strong class="crumb">{compPath()[compPath().length - 1]}</strong>}
         <input class="title" value={p.name} aria-label="Project name" onChange={(e) => rename((e.target as HTMLInputElement).value)} />
         <span class={`save ${saveState.value}`} role="status">{SAVE_LABEL[saveState.value]}</span>
         <span class="spacer" />
-        <button class="btn" disabled={!canUndo()} onClick={undo} title={undoLabel()} aria-label="Undo"><Icon name="undo-2" /></button>
-        <button class="btn" disabled={!canRedo()} onClick={redo} aria-label="Redo"><Icon name="redo-2" /></button>
-        <button class="btn" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')}><Icon name="panel-bottom" /> Timeline</button>
-        <button class="btn" aria-pressed={panels.value.right} onClick={() => toggle('right')}><Icon name="panel-right" /> Panel</button>
-        <button class="btn" onClick={() => setSettingsOpen(true)}>Settings</button>
-        <button class="btn" aria-label="Help and shortcuts" onClick={() => setHelpOpen(true)}>?</button>
-        <button class="btn primary" onClick={() => setExportOpen(true)}>Export{activeJobs() ? ` ●${activeJobs()}` : ''}</button>
+        <button class={`btn icon ${canUndo() ? 'accent' : ''}`} disabled={!canUndo()} onClick={undo} title={undoLabel()} aria-label="Undo"><Icon name="undo-2" size={17} /></button>
+        <button class="btn icon" disabled={!canRedo()} onClick={redo} title="Redo" aria-label="Redo"><Icon name="redo-2" size={17} /></button>
+        <button class="icon-btn" aria-label={`Appearance: ${themeLabel()}`} title={`Appearance: ${themeLabel()}`} onClick={cycleTheme}><Icon name={theme.value === 'light' ? 'sun' : theme.value === 'dark' ? 'moon' : 'sun'} size={18} /></button>
+        <button class="btn ghost" aria-pressed={panels.value.timeline} onClick={() => toggle('timeline')} title="Toggle timeline"><Icon name="panel-bottom" size={17} /><span class="lbl">Timeline</span></button>
+        <button class="btn ghost" aria-pressed={panels.value.right} onClick={() => toggle('right')} title="Toggle inspector panel"><Icon name="panel-right" size={17} /><span class="lbl">Panel</span></button>
+        <button class="icon-btn" aria-label="Help and shortcuts" title="Help (?)" onClick={() => setHelpOpen(true)}><Icon name="help-circle" size={18} /></button>
+        <button class="btn ghost" onClick={() => setSettingsOpen(true)} title="Project settings"><Icon name="settings" size={17} /><span class="lbl">Settings</span></button>
+        <button class="btn primary" onClick={() => setExportOpen(true)}><Icon name="share" size={16} /> Export{activeJobs() ? ` ●${activeJobs()}` : ''}</button>
       </header>
+
+      <ToolRail />
+      <PresetsDrawer onManage={() => setTab('presets')} />
 
       <section class="viewer" data-testid="viewer-panel">
         <Viewer />
         <footer class="transport">
-          <button class="btn" onClick={() => seek(0)} aria-label="Go to start"><Icon name="skip-back" /></button>
-          <button class="btn" onClick={() => step(-1)} aria-label="Previous frame"><Icon name="step-back" /></button>
-          <button class="btn primary" onClick={() => (playing.value ? pause() : play())} aria-label={playing.value ? 'Pause' : 'Play'}><Icon name={playing.value ? 'pause' : 'play'} /></button>
-          <button class="btn" onClick={() => step(1)} aria-label="Next frame"><Icon name="step-forward" /></button>
-          <button class="btn sm" aria-pressed={mbPreview.value} title="Preview motion blur (needs layers with motion blur and the project setting on)" onClick={() => (mbPreview.value = !mbPreview.value)}>MB</button>
-          <span class="tc" aria-label="Current time">{timecode(Math.floor(playhead.value), s.fps)}</span>
-          <span class="hint">/ {timecode(s.duration, s.fps)} · {s.width}×{s.height} · {s.fps} fps</span>
+          <div class="transport-btns">
+            <button class="btn icon" onClick={() => seek(0)} aria-label="Go to start"><Icon name="skip-back" size={17} /></button>
+            <button class="btn icon" onClick={() => step(-1)} aria-label="Previous frame"><Icon name="step-back" size={17} /></button>
+            <button class="btn primary play" onClick={() => (playing.value ? pause() : play())} aria-label={playing.value ? 'Pause' : 'Play'}><Icon name={playing.value ? 'pause' : 'play'} size={18} fill /></button>
+            <button class="btn icon" onClick={() => step(1)} aria-label="Next frame"><Icon name="step-forward" size={17} /></button>
+          </div>
+          <div class="transport-readout">
+            <span class="tc" aria-label="Current time">{timecode(Math.floor(playhead.value), s.fps)}</span>
+            <span class="hint">/ {timecode(s.duration, s.fps)} · {s.width}×{s.height} · {s.fps} fps</span>
+          </div>
+          <button class="btn badge" aria-pressed={mbPreview.value} title="Preview motion blur (needs layers with motion blur and the project setting on)" onClick={() => (mbPreview.value = !mbPreview.value)}>MB</button>
         </footer>
       </section>
 
       <aside class="panel right" data-testid="side-panel">
+        <header class="insp-head">
+          <span class="insp-grip" aria-hidden="true" />
+          <span class="chip" style={{ background: chip }} aria-hidden="true" />
+          <div class="insp-id">
+            <strong>{selLayer?.name ?? 'Inspector'}</strong>
+            <span>{selLayer ? TYPE_LABEL[selLayer.type] ?? 'Layer' : 'No layer selected'}</span>
+          </div>
+          <button class="icon-btn" aria-label="Hide inspector" title="Hide inspector" onClick={() => toggle('right')}><Icon name="x" size={16} /></button>
+        </header>
         <nav class="tabs" role="tablist">
           {(['inspector', 'effects', 'presets', 'assets'] as Tab[]).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{t}</button>
           ))}
         </nav>
-        {tab === 'inspector' ? <Inspector /> : tab === 'effects' ? <EffectsPanel /> : tab === 'presets' ? <PresetsPanel /> : <AssetsPanel />}
+        <div class="panel-body">
+          {tab === 'inspector' ? <Inspector /> : tab === 'effects' ? <EffectsPanel /> : tab === 'presets' ? <PresetsPanel /> : <AssetsPanel />}
+        </div>
       </aside>
 
       <section class="timeline" data-testid="timeline"><Timeline /></section>
 
       <ContextMenuHost />
+      {easingOpen.value && <EasingPicker onClose={() => (easingOpen.value = false)} />}
       {notice.value && <div class="toast" role="status"><span>{notice.value}</span><button class="btn sm" onClick={() => (notice.value = '')}>OK</button></div>}
       {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
       {exportOpen && <ExportDialog onClose={() => setExportOpen(false)} />}

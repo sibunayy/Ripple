@@ -17,6 +17,15 @@ RippleFlow's engine (document model, evaluation, renderer, export, I/O) is separ
 - Inspector sections are `button.sec-head[aria-expanded]`; context menus are `[role=menu]` / `[role=menuitem]` opened by long-press or right-click.
 - Touch gestures (`src/app/gestures.ts`): two-finger tap = undo, three-finger tap = redo, touch pointers only.
 
+## Concept 1 v3 shell (`Editor.tsx`, `ToolRail.tsx`, `PresetsDrawer.tsx`)
+- **Layout** is one grid: `topbar / rail / presets drawer / viewer / inspector / timeline`. Tokens `--rail-w`, `--drawer-w`, `--inspector-w`, `--tl-h` size the columns/row; `.editor.no-drawer`, `.no-right`, `.no-timeline` collapse them.
+- **Tool rail** is `[aria-label=Tools]` with one `44 pt` button per tool (≥9 `svg.ico`) plus *Finish path* / *Close path* while a pen draft is open and *Toggle presets drawer*. Tools also keep the keyboard shortcut map.
+- **Presets drawer** is `aside[aria-label=Presets]`: `input[aria-label="Search presets"]`, category chips, preset tiles (apply at the playhead), *Manage presets…*. Hidden below 980 px (the rail toggle still controls its state).
+- **Stage bar** above the canvas keeps *Zoom in* / *Zoom out* and adds *Fit*, *Fit selection*, *Snap*, and the *Performance overlay* toggle; the floating **quick actions** toolbar (`[aria-label="Quick actions"]`) sits inside the viewport and scrolls horizontally on narrow screens.
+- **Inspector is a grid column, not an overlay**: the *Panel* button must widen `[data-testid=viewer-panel]` by >100 px when it hides (m12). Below 980 px it starts hidden so the viewer fits.
+- **Timeline bar** keeps the visible *＋ Solid*, *＋ Null*, *＋ Adjust*, *＋ Shader*, *＋ Comp* and *＋ Media* labels tests click, plus Dope Sheet / Graph, Auto-key, Snap, Easing, layer ops, markers and zoom. It wraps below 1280 px instead of hiding actions.
+- **Appearance** cycles Auto → Dark → Light with `aria-label="Appearance: <mode>"`; `auto` removes `data-theme` and follows `prefers-color-scheme`, fixed modes set `data-theme` on `<html>`.
+
 ## Must-keep behaviour
 
 - **Landmarks** (`data-testid`): `library`, `project-card`, `editor`, `topbar`, `viewer-panel`, `stage`, `side-panel`, `timeline`, `layer-row` (with `data-selected`). The stage contains the GL `<canvas aria-label="Composition viewer">` and the `svg.overlay`; pointer maths in `Viewer.tsx` assumes the stage is scaled by CSS transform.
@@ -26,7 +35,7 @@ RippleFlow's engine (document model, evaluation, renderer, export, I/O) is separ
 - **Touch**: 44 pt hit targets on `(pointer: coarse)`, palm rejection in the viewer, `touch-action` rules on the canvas and timeline, `prefers-reduced-motion`, light and dark themes.
 - **Globals** used by tests and tooling: `window.__ripple.{renderer,doc,load,save}`; deep link `?view=editor[&template=…]`; localStorage key `rf-onboarded-v1`.
 - **Keyboard**: the shortcut map in [shortcuts.md](shortcuts.md) lives in `Editor.tsx` (`useShortcuts`).
-- **Tokens** the CSS exposes (all must stay defined): `--bg --surface --surface-2 --line --text --muted --accent --accent-text --danger --ok --on-danger --scrim --scrim-light --shade --shadow --checker-a --checker-b --radius --hit --name-w`. `--name-w` must match `NAME_W` in `Timeline.tsx`.
+- **Tokens** the CSS exposes (all must stay defined): `--bg --surface --surface-2 --surface-3 --line --line-soft --text --muted --accent --accent-text --accent-soft --danger --ok --on-danger --guide --scrim --scrim-light --shade --shadow --checker-a --checker-b --radius --radius-sm --hit --name-w --rail-w --drawer-w --inspector-w --tl-h`. `--name-w` must match `NAME_W` in `Timeline.tsx`.
 
 ## Verifying a swap
 

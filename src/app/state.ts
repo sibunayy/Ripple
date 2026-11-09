@@ -12,7 +12,8 @@ import { maskProp } from '../render/masks';
 import { layerBox } from '../shape/geometry';
 import { shapePath } from '../shape/geometry';
 import { evalProp, isAnimated, setKey, writeProp, toggleAnimated } from '../anim/interp';
-import { reparent } from '../eval/evaluate';
+import { corners, evaluate, reparent } from '../eval/evaluate';
+import { IDENT, invert } from '../eval/affine';
 import { copyKeys, deleteKeys, moveKeys, nextKeyTime, pasteKeys, pruneRefs, setEaseOnKeys, setKeyValue, type ClipEntry, type KeyRef } from '../anim/keys';
 import type { Ease } from '../model/layer';
 import { deleteProject, getSnapshot, lastLoadRecovered, listProjects, loadProject, saveProject, type ProjectMeta } from '../io/store';
@@ -405,6 +406,64 @@ export function toggleStopwatch(id: string, prop: PropKey) {
 }
 
 export const valueAt = (l: Layer, prop: PropKey, t = frame()) => evalProp(propOf(l, prop) as Prop<never>, t) as number | Vec2;
+
+/** Align the selected layers' shared bounding box to the composition edges or centre. */
+export type AlignEdge = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
+export function alignSelection(edge: AlignEdge) {
+  const p = current.peek(); const ids = selection.peek();
+  if (!p || !ids.length) return;
+  const t = frame();
+  const resolved = evaluate(p.layers, t);
+  const chosen = resolved.filter((r) => ids.includes(r.layer.id));
+  if (!chosen.length) return;
+  const pts = chosen.flatMap((r) => corners(r, t));
+  const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const w = p.settings.width, h = p.settings.height;
+  const dx = edge === 'left' ? 0 - x0 : edge === 'right' ? w - x1 : edge === 'center' ? w / 2 - (x0 + x1) / 2 : 0;
+  const dy = edge === 'top' ? 0 - y0 : edge === 'bottom' ? h - y1 : edge === 'middle' ? h / 2 - (y0 + y1) / 2 : 0;
+  if (!dx && !dy) return;
+  const byId = new Map(resolved.map((r) => [r.layer.id, r]));
+  commit(`Align ${edge}`, (q) => ({
+    ...q,
+    layers: q.layers.map((l) => {
+      if (!ids.includes(l.id)) return l;
+      const cur = propOf(l, 'position'); if (!cur) return l;
+      const inv = invert(l.parent ? byId.get(l.parent)?.world ?? IDENT : IDENT) ?? IDENT;
+      const d: Vec2 = [inv[0] * dx + inv[2] * dy, inv[1] * dx + inv[3] * dy];
+      const pos = valueAt(l, 'position', t) as Vec2;
+      return withProp(l, 'position', writeProp(cur as Prop<never>, t, [pos[0] + d[0], pos[1] + d[1]] as never));
+    }),
+  }));
+}
+
+/** Space the selected layers evenly between the outermost two (centres), along one axis. */
+export function distributeSelection(axis: 'h' | 'v') {
+  const p = current.peek(); const ids = selection.peek();
+  if (!p || ids.length < 3) return;
+  const t = frame();
+  const resolved = evaluate(p.layers, t);
+  const chosen = resolved.filter((r) => ids.includes(r.layer.id)).map((r) => {
+    const cs = corners(r, t), vs = cs.map((q) => (axis === 'h' ? q[0] : q[1]));
+    return { r, c: (Math.min(...vs) + Math.max(...vs)) / 2 };
+  }).sort((a, b) => a.c - b.c);
+  const first = chosen[0]!, last = chosen[chosen.length - 1]!;
+  const step = (last.c - first.c) / (chosen.length - 1);
+  const deltas = new Map(chosen.map((o, i) => [o.r.layer.id, first.c + step * i - o.c]));
+  const byId = new Map(resolved.map((r) => [r.layer.id, r]));
+  commit(`Distribute ${axis === 'h' ? 'horizontally' : 'vertically'}`, (q) => ({
+    ...q,
+    layers: q.layers.map((l) => {
+      const dd = deltas.get(l.id); if (dd === undefined || !dd) return l;
+      const cur = propOf(l, 'position'); if (!cur) return l;
+      const dx = axis === 'h' ? dd : 0, dy = axis === 'v' ? dd : 0;
+      const inv = invert(l.parent ? byId.get(l.parent)?.world ?? IDENT : IDENT) ?? IDENT;
+      const d: Vec2 = [inv[0] * dx + inv[2] * dy, inv[1] * dx + inv[3] * dy];
+      const pos = valueAt(l, 'position', t) as Vec2;
+      return withProp(l, 'position', writeProp(cur as Prop<never>, t, [pos[0] + d[0], pos[1] + d[1]] as never));
+    }),
+  }));
+}
 
 // ---- media -------------------------------------------------------------------------------------------------
 
