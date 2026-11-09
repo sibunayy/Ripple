@@ -147,7 +147,7 @@ export function Viewer() {
 
   const lastPen = useRef(0);
   const onDown = (e: PointerEvent) => {
-    if ((e.target as HTMLElement).closest?.('.tools, .zoombar, .tbox')) return;
+    if ((e.target as HTMLElement).closest?.('.quickbar, .hud, .tbox')) return; // floating UI inside the viewport must not hit the canvas
     if (e.pointerType === 'pen') lastPen.current = performance.now();
     else if (e.pointerType === 'touch' && performance.now() - lastPen.current < 1500) return; // palm rejection while drawing with the Pencil
     wrap.current!.setPointerCapture(e.pointerId);

@@ -31,7 +31,7 @@ export const checks = [{
     if ((await selected(page)) !== 3) throw new Error('shift-click should add a layer');
     await page.keyboard.down('Shift'); await page.mouse.click(px, py); await page.keyboard.up('Shift');
     if ((await selected(page)) !== 2) throw new Error('shift-click should remove it again');
-    const [ex, ey] = await toScreen(page, [1000, 1000]);
+    const [ex, ey] = await toScreen(page, [1000, 150]); // top-centre is empty canvas; bottom-centre is the floating quickbar
     await page.mouse.click(ex, ey);
     if ((await selected(page)) !== 0) throw new Error('empty click should clear');
     await page.keyboard.press('Control+a');

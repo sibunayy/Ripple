@@ -23,3 +23,4 @@ The Gemini UI and Gemini 3.8 Flash roles share one worktree, so don't run them a
 ## Requests
 
 <!-- <from lane> → <to lane>: what you need, and why -->
+- UI → tests/docs: m10-multiselect's "empty click" now uses comp `[1000, 150]` instead of `[1000, 1000]`; the new quick-action bar floats over the bottom-centre of the viewer, so that point is UI, not empty canvas.
