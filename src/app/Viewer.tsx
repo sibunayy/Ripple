@@ -461,8 +461,8 @@ function Overlay({ zoom }: { zoom: number }) {
       {marquee.value && <rect x={Math.min(marquee.value.a[0], marquee.value.b[0])} y={Math.min(marquee.value.a[1], marquee.value.b[1])}
         width={Math.abs(marquee.value.a[0] - marquee.value.b[0])} height={Math.abs(marquee.value.a[1] - marquee.value.b[1])}
         fill="var(--accent)" fill-opacity=".12" stroke="var(--accent)" stroke-width={px} stroke-dasharray={`${4 * px} ${3 * px}`} />}
-      {guides.value.x !== undefined && <line x1={guides.value.x} x2={guides.value.x} y1={0} y2={p.settings.height} stroke="var(--danger)" stroke-width={px} />}
-      {guides.value.y !== undefined && <line y1={guides.value.y} y2={guides.value.y} x1={0} x2={p.settings.width} stroke="var(--danger)" stroke-width={px} />}
+      {guides.value.x !== undefined && <line x1={guides.value.x} x2={guides.value.x} y1={0} y2={p.settings.height} stroke="var(--guide)" stroke-width={px} stroke-dasharray={`${6 * px} ${4 * px}`} />}
+      {guides.value.y !== undefined && <line y1={guides.value.y} y2={guides.value.y} x1={0} x2={p.settings.width} stroke="var(--guide)" stroke-width={px} stroke-dasharray={`${6 * px} ${4 * px}`} />}
     </svg>
   );
 }

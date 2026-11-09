@@ -35,7 +35,7 @@ RippleFlow's engine (document model, evaluation, renderer, export, I/O) is separ
 - **Touch**: 44 pt hit targets on `(pointer: coarse)`, palm rejection in the viewer, `touch-action` rules on the canvas and timeline, `prefers-reduced-motion`, light and dark themes.
 - **Globals** used by tests and tooling: `window.__ripple.{renderer,doc,load,save}`; deep link `?view=editor[&template=…]`; localStorage key `rf-onboarded-v1`.
 - **Keyboard**: the shortcut map in [shortcuts.md](shortcuts.md) lives in `Editor.tsx` (`useShortcuts`).
-- **Tokens** the CSS exposes (all must stay defined): `--bg --surface --surface-2 --surface-3 --line --line-soft --text --muted --accent --accent-text --accent-soft --danger --ok --on-danger --scrim --scrim-light --shade --shadow --checker-a --checker-b --radius --radius-sm --hit --name-w --rail-w --drawer-w --inspector-w --tl-h`. `--name-w` must match `NAME_W` in `Timeline.tsx`.
+- **Tokens** the CSS exposes (all must stay defined): `--bg --surface --surface-2 --surface-3 --line --line-soft --text --muted --accent --accent-text --accent-soft --danger --ok --on-danger --guide --scrim --scrim-light --shade --shadow --checker-a --checker-b --radius --radius-sm --hit --name-w --rail-w --drawer-w --inspector-w --tl-h`. `--name-w` must match `NAME_W` in `Timeline.tsx`.
 
 ## Verifying a swap
 
