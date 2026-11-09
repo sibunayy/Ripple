@@ -103,7 +103,7 @@ export const checks = [{
     await page.waitForSelector('.save.saved', { timeout: 10000 });
     await page.close({ runBeforeUnload: false });
     const p2 = await ctx.newPage();
-    await p2.goto(process.env.RF_URL ?? 'http://localhost:4179/Ripple/');
+    await p2.goto(process.env.RF_URL ?? `http://localhost:${process.env.E2E_PORT ?? 4179}/Ripple/`);
     await p2.waitForSelector(UI.card);
     await p2.locator('.card .thumb').first().click();
     await p2.waitForSelector(UI.editor);

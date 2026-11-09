@@ -9,7 +9,7 @@ import { PRELUDE } from './prelude.mjs';
 import { UI } from './ui.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const PORT = 4179, URL_ = `http://localhost:${PORT}/Ripple/`;
+const PORT = Number(process.env.E2E_PORT ?? 4179), URL_ = `http://localhost:${PORT}/Ripple/`;
 const only = process.argv[2];
 
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
