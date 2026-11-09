@@ -1,21 +1,21 @@
 import { useRef, useState } from 'preact/hooks';
 import {
   addAdjustment, addComp, addLayer, addMarker, addShaderLayer, autoKey, current, deleteLayers, duplicateLayers, expanded, importMedia, keySel, moveLayer, moveSelectedKeys, playhead, copySelectedKeys, deleteSelectedKeys, pasteKeyframes,
-  hideShy, precompose, removeMarker, renameLayer, renameMarker, selMarker, selection, setParent, setTiming, setWorkArea, toggleExpanded, toggleLocked, toggleShy, toggleSolo, toggleVisible,
+  hideShy, precompose, removeMarker, renameLayer, renameMarker, selMarker, selection, setParent, setTiming, setWorkArea, toggleExpanded, toggleLocked, toggleShy, toggleSolo, toggleStopwatch, toggleVisible,
 } from './state';
 import { setTool } from './tools';
 import { seek } from './playback';
 import { isAnimated } from '../anim/interp';
 import { sameKey, type KeyRef } from '../anim/keys';
-import { workRange } from '../model/project';
+import { timecode, workRange } from '../model/project';
 import { Graph } from './Graph';
-import { EasingPicker } from './EasingPicker';
 import { animatedProps, propLabel } from './props';
 import { allProps, propOf, type Layer, type Prop, type PropKey } from '../model/layer';
 import { Icon } from '../ui/Icon';
 import { contextProps } from '../ui/ContextMenu';
+import { easingOpen, snapEnabled } from './uistate';
 
-const NAME_W = 270; // keep in sync with --name-w in theme.css
+const NAME_W = 280; // keep in sync with --name-w in theme.css
 const MIN_PPF = 0.5, MAX_PPF = 40;
 const px = (n: number) => `${n}px`;
 
@@ -30,7 +30,6 @@ export function Timeline() {
   const { duration, fps } = p.settings;
   const [ppf, setPpf] = useState(4);
   const [mode, setMode] = useState<'dope' | 'graph'>('dope');
-  const [easingOpen, setEasingOpen] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const width = duration * ppf;
   const zoom = (f: number) => setPpf((v) => Math.min(MAX_PPF, Math.max(MIN_PPF, v * f)));
@@ -51,22 +50,26 @@ export function Timeline() {
   return (
     <>
       <div class="tl-bar">
-        <div class="seg" role="tablist" aria-label="Timeline view">
-          <button role="tab" aria-selected={mode === 'dope'} onClick={() => setMode('dope')}>Dope sheet</button>
+        <div class="seg tl-modes" role="tablist" aria-label="Timeline view">
+          <button role="tab" aria-selected={mode === 'dope'} onClick={() => setMode('dope')}>Dope Sheet</button>
           <button role="tab" aria-selected={mode === 'graph'} onClick={() => setMode('graph')}>Graph</button>
         </div>
-        <button class={`btn sm autokey ${autoKey.value ? 'on' : ''}`} aria-pressed={autoKey.value} onClick={() => (autoKey.value = !autoKey.value)}
-          title="Auto-key (K): editing any property at the playhead creates a keyframe"><Icon name="circle-dot" size={16} /> Auto-key</button>
-        <button class="btn sm" disabled={!nKeys} onClick={() => setEasingOpen(true)}>Easing{nKeys ? ` (${nKeys})` : ''}</button>
+        <button class={`switchbtn ${autoKey.value ? 'on' : ''}`} aria-pressed={autoKey.value} onClick={() => (autoKey.value = !autoKey.value)}
+          title="Auto-key (K): editing any property at the playhead creates a keyframe">Auto-key <span class="switch" aria-hidden="true"><i /></span></button>
+        <button class={`btn sm ghost ${snapEnabled.value ? 'on' : ''}`} aria-pressed={snapEnabled.value} onClick={() => (snapEnabled.value = !snapEnabled.value)}
+          title="Snap in the viewer and timeline"><Icon name="magnet" size={15} /> Snap</button>
+        <button class="btn sm ghost" disabled={!nKeys} onClick={() => (easingOpen.value = true)} title="Edit the easing of the selected keyframes">
+          <Icon name="spline" size={15} /> Easing{nKeys ? ` (${nKeys})` : ''}
+        </button>
         <span class="sep" />
-        <button class="btn sm" onClick={() => addLayer('solid')} aria-label="Add solid layer">＋ Solid</button>
-        <button class="btn sm" onClick={() => addLayer('null')} aria-label="Add null layer">＋ Null</button>
-        <button class="btn sm" onClick={() => setTool('rect')} aria-label="Draw a shape">＋ Shape</button>
-        <button class="btn sm" onClick={() => setTool('text')} aria-label="Add text">＋ Text</button>
-        <button class="btn sm" onClick={addAdjustment} aria-label="Add adjustment layer">＋ Adjust</button>
-        <button class="btn sm" onClick={addShaderLayer} aria-label="Add shader layer">＋ Shader</button>
-        <button class="btn sm" onClick={addComp} aria-label="Add composition">＋ Comp</button>
-        <label class="btn sm filebtn" aria-label="Import media">＋ Media
+        <button class="btn sm ghost" onClick={() => setTool('rect')} aria-label="Draw a shape"><Icon name="square" size={15} /> Shape</button>
+        <button class="btn sm ghost" onClick={() => setTool('text')} aria-label="Add text"><Icon name="type" size={15} /> Text</button>
+        <button class="btn sm add-solid" onClick={() => addLayer('solid')} aria-label="Add solid layer">＋ Solid</button>
+        <button class="btn sm ghost" onClick={() => addLayer('null')} aria-label="Add null layer">＋ Null</button>
+        <button class="btn sm ghost" onClick={addAdjustment} aria-label="Add adjustment layer">＋ Adjust</button>
+        <button class="btn sm ghost" onClick={addShaderLayer} aria-label="Add shader layer">＋ Shader</button>
+        <button class="btn sm ghost" onClick={addComp} aria-label="Add composition">＋ Comp</button>
+        <label class="btn sm ghost filebtn" aria-label="Import media">＋ Media
           <input type="file" multiple accept="image/*,video/*,.svg,.heic,.avif" hidden onChange={(e) => { const fs = Array.from((e.target as HTMLInputElement).files ?? []); if (fs.length) void importMedia(fs); (e.target as HTMLInputElement).value = ''; }} />
         </label>
         {sel.length > 0 && <>
@@ -75,22 +78,22 @@ export function Timeline() {
             <option value="">No parent</option>
             {p.layers.filter((o) => o.id !== first.id).map((o) => <option key={o.id} value={o.id}>↳ {o.name}</option>)}
           </select>}
-          <button class="btn sm" disabled={idx <= 0} onClick={() => first && moveLayer(first.id, -1)} aria-label="Move layer up"><Icon name="arrow-up" /></button>
-          <button class="btn sm" disabled={idx < 0 || idx === p.layers.length - 1} onClick={() => first && moveLayer(first.id, 1)} aria-label="Move layer down"><Icon name="arrow-down" /></button>
-          <button class="btn sm" onClick={() => duplicateLayers(sel)} aria-label="Duplicate layer"><Icon name="copy" /></button>
-          <button class="btn sm" onClick={() => precompose(sel)} aria-label="Pre-compose selected layers"><Icon name="layers" /></button>
-          <button class="btn sm danger" onClick={() => deleteLayers(sel)} aria-label="Delete layer"><Icon name="trash-2" /></button>
+          <button class="btn sm ghost" disabled={idx <= 0} onClick={() => first && moveLayer(first.id, -1)} aria-label="Move layer up"><Icon name="arrow-up" size={15} /></button>
+          <button class="btn sm ghost" disabled={idx < 0 || idx === p.layers.length - 1} onClick={() => first && moveLayer(first.id, 1)} aria-label="Move layer down"><Icon name="arrow-down" size={15} /></button>
+          <button class="btn sm ghost" onClick={() => duplicateLayers(sel)} aria-label="Duplicate layer"><Icon name="copy" size={15} /></button>
+          <button class="btn sm ghost" onClick={() => precompose(sel)} aria-label="Pre-compose selected layers"><Icon name="layers" size={15} /></button>
+          <button class="btn sm ghost danger" onClick={() => deleteLayers(sel)} aria-label="Delete layer"><Icon name="trash-2" size={15} /></button>
         </>}
         <span class="spacer" />
-        <button class={`btn sm ${hideShy.value ? 'on' : ''}`} aria-pressed={hideShy.value} onClick={() => (hideShy.value = !hideShy.value)}
-          title="Hide layers marked shy from this list">Shy</button>
-        <button class="btn sm" onClick={() => addMarker()} aria-label="Add marker at playhead"><Icon name="diamond" /> Marker</button>
-        {marker && <button class="btn sm danger" onClick={() => removeMarker(marker.id)} aria-label="Delete marker"><Icon name="trash-2" /> {marker.name}</button>}
-        {p.workArea && <button class="btn sm" onClick={() => setWorkArea(null)}>Reset range</button>}
+        <button class={`btn sm ghost ${hideShy.value ? 'on' : ''}`} aria-pressed={hideShy.value} onClick={() => (hideShy.value = !hideShy.value)}
+          title="Hide layers marked shy from this list"><Icon name="ghost" size={15} /> Shy</button>
+        <button class="btn sm ghost" onClick={() => addMarker()} aria-label="Add marker at playhead"><Icon name="diamond" size={15} /> Marker</button>
+        {marker && <button class="btn sm ghost danger" onClick={() => removeMarker(marker.id)} aria-label="Delete marker"><Icon name="trash-2" size={15} /> {marker.name}</button>}
+        {p.workArea && <button class="btn sm ghost" onClick={() => setWorkArea(null)}>Reset range</button>}
         {mode === 'dope' && <>
-          <button class="btn sm" onClick={() => zoom(1 / 1.4)} aria-label="Zoom timeline out"><Icon name="minus" /></button>
-          <button class="btn sm" onClick={fit}>Fit</button>
-          <button class="btn sm" onClick={() => zoom(1.4)} aria-label="Zoom timeline in">＋</button>
+          <button class="btn sm ghost" onClick={() => zoom(1 / 1.4)} aria-label="Zoom timeline out"><Icon name="minus" size={15} /></button>
+          <button class="btn sm ghost" onClick={fit}>Fit</button>
+          <button class="btn sm ghost" onClick={() => zoom(1.4)} aria-label="Zoom timeline in"><Icon name="plus" size={15} /></button>
         </>}
       </div>
 
@@ -103,6 +106,7 @@ export function Timeline() {
                 onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); scrub(e); }}
                 onPointerMove={(e) => { if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) scrub(e); }}>
                 {ticks.map((f) => <span key={f} class="tick" style={{ left: px(f * ppf) }}>{Math.floor(f / fps)}s{f % fps ? `+${f % fps}` : ''}</span>)}
+                <span class="ph-badge" style={{ left: px(playhead.value * ppf) }} aria-hidden="true">{timecode(Math.floor(playhead.value), fps)}</span>
                 {p.workArea && <>
                   <div class="wa-shade" style={{ left: '0px', width: px(waIn * ppf) }} />
                   <div class="wa-shade" style={{ left: px(waOut * ppf), width: px(Math.max(0, (duration - waOut) * ppf)) }} />
@@ -126,7 +130,6 @@ export function Timeline() {
           </div>
         </div>
       )}
-      {easingOpen && <EasingPicker onClose={() => setEasingOpen(false)} />}
     </>
   );
 }
@@ -248,6 +251,8 @@ function PropRow({ layer: l, prop, ppf, width }: { layer: Layer; prop: PropKey; 
   return (
     <div class="tl-row sub">
       <div class="tl-name" title={propLabel(prop, l)}>
+        <button class={`watch sm ${isAnimated(p) ? 'on' : ''}`} aria-pressed={isAnimated(p)} aria-label={`${isAnimated(p) ? 'Remove animation from' : 'Animate'} ${propLabel(prop, l)}`}
+          onClick={(e) => { e.stopPropagation(); toggleStopwatch(l.id, prop); }}><Icon name="timer" size={14} /></button>
         <button class="propname" onClick={() => { keySel.value = keys.map((k) => ref(k.t)); selection.value = [l.id]; }}>{propLabel(prop, l)}</button>
       </div>
       <div class="tl-track" style={{ width }} {...contextProps(() => [

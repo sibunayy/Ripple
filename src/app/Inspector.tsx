@@ -3,7 +3,7 @@ import { ShaderEditor } from './ShaderEditor';
 import { TEMPLATES, type AnimShape, type AnimUnit } from '../text/animate';
 import { addTextAnimator, editAnimator, removeAnimator } from './state';
 import { parseUniforms } from '../render/shader';
-import { setShaderCode, editLayer, editMedia, activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt } from './state';
+import { setShaderCode, editLayer, editMedia, activeComp, addMask, convertToPath, current, deleteMask, editMask, editShape, editText, editablePath, enterComp, frame, playhead, selMask, selection, setBlend, setClip, setLayerColor, setMatte, setPath, setProp, toggleStopwatch, togglePathAnim, valueAt, alignSelection, distributeSelection } from './state';
 import { nodeSel } from './tools';
 import { NumField } from '../ui/NumField';
 import { hasKeyAt, isAnimated } from '../anim/interp';
@@ -80,6 +80,7 @@ export function Inspector() {
     <div class="inspector">
       <h2>{l.name}</h2>
       <Section title="Transform">
+        <AlignRow />
         {vec('position', 'Position')}
         {vec('scale', 'Scale')}
         {num('rotation', 'Rotation', 1)}
@@ -307,6 +308,29 @@ function FontPicker({ layer: l }: { layer: Layer }) {
           const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return;
           editText(l.id, { font: await importFont(f) }); (e.target as HTMLInputElement).value = '';
         }} />
+      </div>
+    </div>
+  );
+}
+
+/** Concept 1 v3 align / distribute row: one tap aligns the selection to the composition. */
+function AlignRow() {
+  const n = selection.value.length;
+  return (
+    <div class="align-row">
+      <div class="align-group" role="group" aria-label="Align">
+        <span class="align-lbl">Align</span>
+        <button class="icon-btn" aria-label="Align left" title="Align left" onClick={() => alignSelection('left')}><Icon name="align-left" size={16} /></button>
+        <button class="icon-btn" aria-label="Align horizontal centre" title="Align centre" onClick={() => alignSelection('center')}><Icon name="align-center-h" size={16} /></button>
+        <button class="icon-btn" aria-label="Align right" title="Align right" onClick={() => alignSelection('right')}><Icon name="align-right" size={16} /></button>
+        <button class="icon-btn" aria-label="Align top" title="Align top" onClick={() => alignSelection('top')}><Icon name="align-top" size={16} /></button>
+        <button class="icon-btn" aria-label="Align vertical centre" title="Align middle" onClick={() => alignSelection('middle')}><Icon name="align-middle" size={16} /></button>
+        <button class="icon-btn" aria-label="Align bottom" title="Align bottom" onClick={() => alignSelection('bottom')}><Icon name="align-bottom" size={16} /></button>
+      </div>
+      <div class="align-group" role="group" aria-label="Distribute">
+        <span class="align-lbl">Distribute</span>
+        <button class="icon-btn" aria-label="Distribute horizontally" title="Distribute horizontally (3+ layers)" disabled={n < 3} onClick={() => distributeSelection('h')}><Icon name="distribute-h" size={16} /></button>
+        <button class="icon-btn" aria-label="Distribute vertically" title="Distribute vertically (3+ layers)" disabled={n < 3} onClick={() => distributeSelection('v')}><Icon name="distribute-v" size={16} /></button>
       </div>
     </div>
   );

@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { effect, signal } from '@preact/signals';
-import { flush, saveState, importMedia, addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText, pasteKeyframes, canUndo, canRedo, undo, redo } from './state';
-import { editingText, finishPen, nodeSel, penDraft, setTool, tool, TOOLS, type Tool } from './tools';
+import { flush, saveState, importMedia, addShape, addText, current, editablePath, frame, playhead, selection, setPath, setProp, setTransform, editText, pasteKeyframes, canUndo, canRedo, undo, redo, duplicateLayers, precompose, keySel, toggleStopwatch } from './state';
+import { editingText, finishPen, nodeSel, penDraft, setTool, tool, type Tool } from './tools';
+import { alignSelection } from './state';
+import { snapEnabled, easingOpen } from './uistate';
 import { distToPoly, flatten, insertNode, moveHandle, moveNode, nearestOnPath, node as mkNode } from '../shape/path';
 import { layoutText, fontString, textStyle } from '../text/metrics';
 import { layerBox } from '../shape/geometry';
@@ -13,7 +15,7 @@ import { corners, evaluate, hitTest } from '../eval/evaluate';
 import { evalProp, isAnimated } from '../anim/interp';
 import { apply, invert, type Mat } from '../eval/affine';
 import { GLRenderer } from '../render/gl';
-import type { BezPath, Layer, Prop, Vec2 } from '../model/layer';
+import { propOf, type BezPath, type Layer, type Prop, type Vec2 } from '../model/layer';
 import { Icon } from '../ui/Icon';
 import { contextProps } from '../ui/ContextMenu';
 
@@ -283,7 +285,7 @@ export function Viewer() {
       selection.value = [...d.base.filter((x) => !hit.includes(x)), ...hit];
     } else if (d.kind === 'move') {
       let dx = cx - d.start[0], dy = cy - d.start[1];
-      if (!e.altKey) { // snap box edges/centre to the comp and other layers
+      if (snapEnabled.peek() && !e.altKey) { // snap box edges/centre to the comp and other layers
         const th = 6 / viewRef.current.zoom, g: { x?: number; y?: number } = {};
         const sn = (vals: number[], targets: number[]) => { let best: number | null = null; for (const v of vals) for (const t of targets) { const dd = t - v; if (Math.abs(dd) < th && (best === null || Math.abs(dd) < Math.abs(best))) best = dd; } return best; };
         const bx = sn([d.box[0] + dx, (d.box[0] + d.box[2]) / 2 + dx, d.box[2] + dx], d.targets.xs), by = sn([d.box[1] + dy, (d.box[1] + d.box[3]) / 2 + dy, d.box[3] + dy], d.targets.ys);
@@ -367,26 +369,67 @@ export function Viewer() {
 
   const zoomBy = (f: number) => { const el = wrap.current!; zoomAt(el.clientWidth / 2, el.clientHeight / 2, f); };
 
+  /** Frame the selection: zoom/pan so every selected layer's bounds fit with a comfortable margin. */
+  const fitSelection = () => {
+    const ids = selection.peek(); const el = wrap.current; if (!ids.length || !el) return;
+    const t = playhead.peek();
+    const hit = evaluate(current.peek()!.layers, t).filter((r) => ids.includes(r.layer.id));
+    if (!hit.length) return;
+    const pts = hit.flatMap((r) => corners(r, t));
+    const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const pad = 64, w = Math.max(1, x1 - x0), h = Math.max(1, y1 - y0);
+    const zoom = Math.min(MAX_ZOOM, Math.min((el.clientWidth - pad) / w, (el.clientHeight - pad) / h));
+    setView({ zoom, x: (el.clientWidth - w * zoom) / 2 - x0 * zoom, y: (el.clientHeight - h * zoom) / 2 - y0 * zoom, fit: false });
+  };
+
+  /** Key every still transform property of the selected layers at the playhead. */
+  const keyframeSelection = () => {
+    const p = current.peek(); if (!p) return;
+    for (const id of selection.peek()) {
+      const l = p.layers.find((x) => x.id === id); if (!l) continue;
+      for (const k of ['position', 'scale', 'rotation', 'opacity'] as const) {
+        const cur = propOf(l, k);
+        if (cur && !isAnimated(cur)) toggleStopwatch(id, k);
+      }
+    }
+  };
+
   return (
-    <div class="viewport" ref={wrap} {...contextProps(() => (tool.peek() === 'select' ? [
-      { label: 'Select all', icon: 'copy', onSelect: () => { selection.value = current.peek()!.layers.filter((l) => !l.locked).map((l) => l.id); } },
-      { label: 'Paste keyframes', icon: 'layers', onSelect: pasteKeyframes },
-      { label: 'Undo', icon: 'undo-2', disabled: !canUndo(), onSelect: undo },
-      { label: 'Redo', icon: 'redo-2', disabled: !canRedo(), onSelect: redo },
-    ] : []))} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length) void importMedia(fs); }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-      <div class="stage" data-testid="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
-        <canvas ref={canvas} aria-label="Composition viewer" />
-        <Overlay zoom={view.zoom} />
-        <TextEditor />
+    <div class="viewer-body">
+      <div class="stage-bar">
+        <button class="btn sm ghost" aria-label="Zoom out" title="Zoom out" onClick={() => zoomBy(1 / 1.25)}><Icon name="minus" size={16} /></button>
+        <button class="zoom-readout" title="Fit to view" onClick={() => setView(fitView())}>{Math.round(view.zoom * 100)}%</button>
+        <button class="btn sm ghost" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1.25)}><Icon name="plus" size={16} /></button>
+        <button class="btn sm ghost" onClick={() => setView(fitView())}>Fit</button>
+        <button class="btn sm ghost" disabled={!selection.value.length} onClick={fitSelection}>Fit selection</button>
+        <button class={`btn sm ghost ${snapEnabled.value ? 'on' : ''}`} aria-pressed={snapEnabled.value} onClick={() => (snapEnabled.value = !snapEnabled.value)}>
+          <Icon name="magnet" size={15} /> Snap
+        </button>
+        <span class="spacer" />
+        <button class={`btn sm ghost ${showHud.value ? 'on' : ''}`} aria-pressed={showHud.value} aria-label="Performance overlay" title="Performance overlay" onClick={() => (showHud.value = !showHud.value)}>ƒ</button>
       </div>
-      <Tools />
-      {showHud.value && <div class="hud" aria-hidden="true">{hudText.value}</div>}
-      {error && <p class="gl-error" role="alert">Rendering unavailable: {error}</p>}
-      <div class="zoombar">
-        <button class="btn sm" aria-pressed={showHud.value} aria-label="Performance overlay" title="Performance overlay" onClick={() => (showHud.value = !showHud.value)}>ƒ</button>
-        <button class="btn sm" onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out"><Icon name="minus" /></button>
-        <button class="btn sm" onClick={() => setView(fitView())}>{Math.round(view.zoom * 100)}%</button>
-        <button class="btn sm" onClick={() => zoomBy(1.25)} aria-label="Zoom in">＋</button>
+      <div class="viewport" ref={wrap} {...contextProps(() => (tool.peek() === 'select' ? [
+        { label: 'Select all', icon: 'copy', onSelect: () => { selection.value = current.peek()!.layers.filter((l) => !l.locked).map((l) => l.id); } },
+        { label: 'Paste keyframes', icon: 'layers', onSelect: pasteKeyframes },
+        { label: 'Undo', icon: 'undo-2', disabled: !canUndo(), onSelect: undo },
+        { label: 'Redo', icon: 'redo-2', disabled: !canRedo(), onSelect: redo },
+      ] : []))} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const fs = Array.from(e.dataTransfer?.files ?? []); if (fs.length) void importMedia(fs); }} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+        <div class="stage" data-testid="stage" ref={stage} style={{ width: `${s.width}px`, height: `${s.height}px`, transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}>
+          <canvas ref={canvas} aria-label="Composition viewer" />
+          <Overlay zoom={view.zoom} />
+          <TextEditor />
+        </div>
+        <div class="quickbar" role="toolbar" aria-label="Quick actions">
+          <button class={`qbtn ${snapEnabled.value ? 'on' : ''}`} aria-pressed={snapEnabled.value} onClick={() => (snapEnabled.value = !snapEnabled.value)}><Icon name="magnet" size={15} />Snap</button>
+          <button class="qbtn" disabled={!selection.value.length} onClick={() => { alignSelection('center'); alignSelection('middle'); }}><Icon name="align-center-h" size={15} />Align</button>
+          <button class="qbtn" disabled={!selection.value.length} onClick={keyframeSelection}><Icon name="diamond" size={15} />Keyframe</button>
+          <button class="qbtn" disabled={!keySel.value.length} onClick={() => (easingOpen.value = true)}><Icon name="spline" size={15} />Easing</button>
+          <button class="qbtn" disabled={!selection.value.length} onClick={() => duplicateLayers(selection.value)}><Icon name="copy" size={15} />Duplicate</button>
+          <button class="qbtn" disabled={!selection.value.length} onClick={() => precompose(selection.value)}><Icon name="layers" size={15} />Group</button>
+        </div>
+        {showHud.value && <div class="hud" aria-hidden="true">{hudText.value}</div>}
+        {error && <p class="gl-error" role="alert">Rendering unavailable: {error}</p>}
       </div>
     </div>
   );
@@ -461,22 +504,6 @@ function PenDraft({ px }: { px: number }) {
 }
 
 /** Floating tool palette. */
-function Tools() {
-  const cur = tool.value, draft = penDraft.value;
-  return (
-    <div class="tools" role="toolbar" aria-label="Tools">
-      {TOOLS.map((t) => (
-        <button key={t.id} class="btn sm" aria-pressed={cur === t.id} title={`${t.label} (${t.key})`} aria-label={t.label} onClick={() => setTool(t.id)}><Icon name={t.icon} /></button>
-      ))}
-      {draft && (
-        <>
-          <button class="btn sm primary" aria-label="Finish path" onClick={() => finishPen(false)}><Icon name="check" /></button>
-          <button class="btn sm" aria-label="Close path" disabled={draft.nodes.length < 3} onClick={() => finishPen(true)}><Icon name="circle-dot" /></button>
-        </>
-      )}
-    </div>
-  );
-}
 
 /** On-canvas text editing: a textarea laid over the layer, matching its transform and font. */
 function TextEditor() {
