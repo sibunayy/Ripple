@@ -12,7 +12,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.E2E_PORT ?? 4179), URL_ = `http://localhost:${PORT}/Ripple/`;
 const only = process.argv[2];
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
+// Run vite's entry with node directly: `spawn('npx')` fails on Windows (npx.cmd) and a shell wrapper would leave vite orphaned on kill.
+const server = spawn(process.execPath, [fileURLToPath(new URL('../../node_modules/vite/bin/vite.js', import.meta.url)), 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 const stop = () => server.kill();
 process.on('exit', stop);
 for (let i = 0; i < 60; i++) { try { if ((await fetch(URL_)).ok) break; } catch { /* not up yet */ } await new Promise((r) => setTimeout(r, 250)); }

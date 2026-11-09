@@ -2,11 +2,12 @@
 // (dark/light × desktop/iPad) so before/after screenshots of a redesign can be compared side by side.
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const out = process.argv[2] ?? 'shots', PORT = Number(process.env.SHOTS_PORT ?? 4180), base = `http://localhost:${PORT}/Ripple/`;
 mkdirSync(out, { recursive: true });
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
+const server = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'ignore' });
 for (let i = 0; i < 60; i++) { try { if ((await fetch(base)).ok) break; } catch { /* not up yet */ } await new Promise((r) => setTimeout(r, 250)); }
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const sizes = { desktop: { width: 1400, height: 900 }, ipad: { width: 1180, height: 820 }, 'ipad-portrait': { width: 820, height: 1180 } };
