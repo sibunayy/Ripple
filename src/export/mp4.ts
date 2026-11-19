@@ -6,7 +6,7 @@ const u32 = (n) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255
 const u16 = (n) => [(n >> 8) & 255, n & 255];
 const box = (t, ...kids) => { const body = kids.flat(Infinity); return [...u32(8 + body.length), ...[...t].map((c) => c.charCodeAt(0)), ...body]; };
 const fullbox = (t, ver, flags, ...kids) => box(t, ver, 0, 0, flags, ...kids);
-function muxMp4(w, h, fps, avcC, samples) {
+export function muxMp4(w, h, fps, avcC, samples) {
   const TS = 90000, dur = Math.round(samples.length * TS / fps), delta = Math.round(TS / fps);
   const Z12 = new Array(12).fill(0), mat = [...u32(0x10000), ...Z12, ...u32(0x10000), ...Z12, ...u32(0x40000000)];
   const sizes = samples.map((s) => s.data.length), sync = samples.map((s, i) => (s.key ? i + 1 : 0)).filter(Boolean);

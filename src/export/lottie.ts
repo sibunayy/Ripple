@@ -9,9 +9,9 @@ import { TYPE_NAME } from '../ui/left-panel';
 /* ---- Lottie (Bodymovin JSON) export: transforms are baked per frame so behaviours, parenting, duplicators and posterize time all match the preview ---- */
 const LBM = { normal: 0, multiply: 1, screen: 2, overlay: 3, darken: 4, lighten: 5, 'color-dodge': 6, 'color-burn': 7, 'hard-light': 8, 'soft-light': 9, difference: 10, exclusion: 11, hue: 12, saturation: 13, color: 14, luminosity: 15 };
 const LTT = { alpha: 1, alphainv: 2, luma: 3, lumainv: 4 };
-const lrgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '').trim()); const n = m ? parseInt(m[1], 16) : 0xffffff; return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255].map((v) => Math.round(v * 1000) / 1000); };
+export const lrgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '').trim()); const n = m ? parseInt(m[1], 16) : 0xffffff; return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255].map((v) => Math.round(v * 1000) / 1000); };
 const lr = (v, d = 2) => Math.round(v * 10 ** d) / 10 ** d;
-function lprop(vals, ip) {
+export function lprop(vals, ip) {
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   if (vals.every((v) => same(v, vals[0]))) return { a: 0, k: vals[0] };
   const k = []; let prev = null;
@@ -25,7 +25,7 @@ function lprop(vals, ip) {
   delete k[k.length - 1].i; delete k[k.length - 1].o;
   return { a: 1, k };
 }
-function lgeom(l) {
+export function lgeom(l) {
   const sh = (P, closed, segs?) => ({ ty: 'sh', ks: { a: 0, k: { c: closed, v: P.map((p) => [lr(p[0]), lr(p[1])]), i: segs ? segs.i : P.map(() => [0, 0]), o: segs ? segs.o : P.map(() => [0, 0]) } } });
   switch (l.type) {
     case 'rect': { const w = l.w || 280, h = l.h || 180; return { g: { ty: 'rc', p: { a: 0, k: [0, 0] }, s: { a: 0, k: [w, h] }, r: { a: 0, k: Math.min(l.cr ?? 24, w / 2, h / 2) }, d: 1 }, bb: [w, h] }; }
@@ -42,7 +42,7 @@ function lgeom(l) {
   }
   return null;
 }
-function lpaint(l, bb, trim, part?) {
+export function lpaint(l, bb, trim, part?) {
   const items = [], sw = l.type === 'ring' ? (l.sw ?? 14) : l.type === 'line' ? (l.sw ?? 12) : l.type === 'path' ? (l.sw ?? 8) : (l.sw || 0);
   const fillOn = l.type === 'path' ? l.fill === true && l.closed : !['ring', 'line'].includes(l.type) && l.fill !== false;
   if (fillOn && part !== 'stroke') {

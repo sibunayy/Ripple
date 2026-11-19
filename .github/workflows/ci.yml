@@ -1,0 +1,22 @@
+name: CI
+
+# Type check, lint, unit tests and a production build on every push and pull request.
+# The Playwright parity suite compares screenshots taken on the reference machine, so it runs locally.
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: npm run build

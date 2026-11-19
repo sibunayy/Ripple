@@ -3,7 +3,7 @@ import { EX } from './dialog';
 import { rasterFrame } from './raster';
 
 /* ---- GIF ---- */
-function medianCut(counts, n) {
+export function medianCut(counts, n) {
   // counts: Map bin(6 bits per channel) -> pixels. Returns [[r,g,b] x n]
   const bins = [...counts.keys()].map((b) => ({ r: (b >> 12) & 63, g: (b >> 6) & 63, b: b & 63, n: counts.get(b) }));
   let boxes = [bins];
@@ -20,7 +20,7 @@ function medianCut(counts, n) {
   }
   return boxes.map((bx) => { let t = 0, r = 0, g = 0, b = 0; for (const c of bx) { t += c.n; r += c.r * c.n; g += c.g * c.n; b += c.b * c.n; } t = t || 1; return [Math.min(255, Math.round(r / t * 4 + 2)), Math.min(255, Math.round(g / t * 4 + 2)), Math.min(255, Math.round(b / t * 4 + 2))]; });
 }
-function lzw(ix) {
+export function lzw(ix) {
   const out = [], MIN = 8, CLEAR = 256, EOI = 257;
   let cur = 0, nb = 0, size = MIN + 1, next = EOI + 1; const dict = new Map();
   const emit = (c) => { cur |= c << nb; nb += size; while (nb >= 8) { out.push(cur & 255); cur >>>= 8; nb -= 8; } };

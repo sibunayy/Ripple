@@ -87,3 +87,18 @@ src/
 - Class fields on `GifOut` use `declare`, so the compiled JavaScript is unchanged.
 - Parity: 234/234 on the build. tsc is clean, and lint shows 0 errors (24 style warnings carried over
   from the prototype).
+
+## Phase 4: unit tests
+
+- Vitest (dev only) with happy-dom. `npm run test:unit` runs 25 tests in `tests/unit/`:
+  - Animation: `bez`, `val`, `pose` (flips, behaviours), `mat`, `world` (parenting).
+  - Export: `lzw` (round-trip through a reference decoder), `medianCut`, `zipStore` (CRC, offsets),
+    `muxMp4` (box sizes, `stco` offset, sample sizes and keyframes), and the Lottie builders
+    `lrgb`, `lprop`, `lgeom`, `lpaint`.
+- To make them testable, `medianCut`, `lzw`, `muxMp4`, `lrgb`, `lprop`, `lgeom` and `lpaint` are now exported.
+  Nothing else changed.
+- `tests/unit/setup.ts` loads the page skeleton from `index.html`, because some modules look up their
+  elements when they load, as the prototype did.
+- `.github/workflows/ci.yml` runs typecheck, lint, unit tests and the build on GitHub. The screenshot
+  parity suite stays local, because its reference images depend on the machine's fonts.
+- Parity: 234/234 on the build.
