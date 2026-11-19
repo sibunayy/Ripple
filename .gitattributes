@@ -1,0 +1,4 @@
+# Keep the reference HTML byte-for-byte identical (no line-ending changes).
+legacy/** -text
+source/** -text
+*.png binary

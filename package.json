@@ -1,0 +1,14 @@
+{
+  "name": "rippleflow",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RippleFlow: a motion design editor for iPad Safari",
+  "type": "module",
+  "scripts": {
+    "test:parity": "playwright test",
+    "test:parity:update": "playwright test --update-snapshots"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1"
+  }
+}
