@@ -119,3 +119,21 @@ src/
   file and does not download, and that closing the sheet shows no error.
 - Parity: 238/238 on the build and on the dev server. Legacy: 234/234. Unit: 25/25.
 - Not yet checked on a real iPad. Playwright WebKit has no share sheet.
+
+## Phase 6: install and offline (PWA)
+
+Nathan approved this phase (HANDOFF section 13, decision 3).
+
+- `public/manifest.webmanifest`: name "RippleFlow", standalone, dark background `#0e0d0c` (`--bg`).
+- Icon: `public/icon.svg` shows rings spreading from a point, in the app's accent blue on `--bg`.
+  `node scripts/make-icons.mjs` renders the PNGs (192, 512, 180 for the iPad home screen). Replace the SVG
+  and rerun the script to change the icon.
+- `index.html` head: manifest, icons, `theme-color`, and the Apple web-app tags (black-translucent status
+  bar; the safe-area padding in `00-host.css` keeps the UI clear of it).
+- Service worker, hand-written with no libraries: `pwa/sw.template.js`. At build time, `pwa/vite-plugin-sw.ts`
+  adds the list of built files and a version from their contents. It caches every file on install.
+  Page loads go to the network first, so updates arrive at once, and use the cache when offline.
+  A new build clears the old cache. The worker is registered only in the production build (`src/host/pwa.ts`).
+- New `tests/parity/12-pwa.spec.ts` (build only): the manifest and icons load, and the app reloads with the
+  network off.
+- Parity: 242/242 on the build, 238/238 on the dev server. Unit: 25/25.

@@ -72,6 +72,7 @@ import { listen as listenGesturesReorder } from './gestures/reorder';
 import './gestures/drags';
 import { listen as listenGesturesCanvas } from './gestures/canvas';
 import { listen as listenEventsKeyboard } from './events/keyboard';
+import { registerServiceWorker } from './host/pwa';
 
 listenUiTopbar();
 listenUiFloats();
@@ -85,3 +86,4 @@ new ResizeObserver(() => layoutStage()).observe(vp);
 if (S.sel && !lay(S.sel)) S.sel = layers[0] ? layers[0].id : null;
 applyTheme(); buildCanvas(); renderAll();
 requestAnimationFrame(() => { layoutStage(); placeSel(); });
+registerServiceWorker();
