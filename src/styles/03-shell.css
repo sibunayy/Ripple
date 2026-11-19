@@ -1,0 +1,53 @@
+/* ---- shell ---------------------------------------------------------------------------------------- */
+.app {
+  --lw: 0px; --rw: 0px; --tlh: 58px;
+  position: relative; height: 100%; max-width: 1600px; margin: 0 auto; overflow: hidden;
+  border-radius: 18px; background: var(--bg); box-shadow: 0 0 0 1px var(--line-soft), 0 20px 60px rgb(0 0 0 / .35);
+  display: grid; grid-template-areas: 'top top top top top' 'ls lp vp rp rs' 'tl tl tl tl tl';
+  grid-template-columns: 48px var(--lw) minmax(0, 1fr) var(--rw) 48px;
+  grid-template-rows: 40px minmax(0, 1fr) var(--tlh);
+}
+.app.anim { transition: grid-template-columns .22s var(--ease), grid-template-rows .22s var(--ease); }
+.app.left-open:not(.portrait) { --lw: 280px; }
+.app.right-open:not(.portrait) { --rw: 264px; }
+.app.folding.folding:not(.portrait) { --lw: 0px; --rw: 0px; } /* auto-fold while dragging on the canvas or playing */
+.app.preview-portrait { max-width: none; width: auto; aspect-ratio: 820 / 1180; height: 100%; }
+
+.top { grid-area: top; display: flex; align-items: center; gap: 2px; padding: 0 6px 0 4px; background: var(--surface); border-bottom: 1px solid var(--line-soft); min-width: 0; }
+.top .back { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); padding: 0 8px 0 4px; }
+.top .name { font-weight: 600; font-size: var(--fs-m); padding: 0 6px; border-radius: var(--r-field); border: 0; background: transparent; color: var(--text); width: 11ch; min-width: 3ch; max-width: 40vw; flex: none; }
+.top .name:focus { background: var(--surface-2); outline: none; box-shadow: var(--lit); }
+.save { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); font-size: var(--fs-xs); white-space: nowrap; }
+.meta { color: var(--faint); font-size: var(--fs-xs); white-space: nowrap; padding: 0 8px 0 2px; }
+.save i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.crumb { color: var(--acc-text); font-size: var(--fs-s); white-space: nowrap; }
+.spacer { flex: 1; }
+.ib { width: 40px; height: 36px; display: inline-grid; place-items: center; border: 0; border-radius: var(--r-btn); background: transparent; color: var(--muted); cursor: pointer; flex: none; }
+.ib:hover { color: var(--text); background: var(--surface-2); }
+.ib:disabled { opacity: .35; pointer-events: none; }
+.ib.on, .ib[aria-expanded="true"] { color: var(--acc-text); background: var(--lit-bg); box-shadow: var(--lit); }
+.ib:active { box-shadow: var(--lit-press); color: var(--acc-text); }
+.primary { height: 32px; padding: 0 14px; border: 0; border-radius: var(--r-btn); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; font-weight: 650; font-size: var(--fs-s);
+  background: rgb(var(--acc)); color: var(--on-acc);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .4), inset 0 0 12px rgb(200 232 255 / .55), 0 0 calc(20px * var(--halo)) rgb(var(--acc) / calc(.5 * var(--g) * var(--halo))); }
+.primary:active { transform: translateY(1px); filter: brightness(1.06); }
+.badge { font-size: 10px; font-weight: 700; background: var(--on-acc); color: rgb(var(--acc)); border-radius: 99px; padding: 1px 6px; }
+
+/* ---- strips ---------------------------------------------------------------------------------------- */
+.strip { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0; background: var(--surface); min-height: 0; z-index: 5; }
+.strip.l { grid-area: ls; border-right: 1px solid var(--line-soft); }
+.strip.r { grid-area: rs; border-left: 1px solid var(--line-soft); }
+.sb { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 11px; background: transparent; color: var(--muted); cursor: pointer; flex: none; touch-action: none; }
+.sb:hover { color: var(--text); background: var(--surface-2); }
+.sb.on { color: var(--acc-text); background: var(--lit-bg); box-shadow: var(--lit); }
+.sb:active { box-shadow: var(--lit-press); }
+.sb:disabled { opacity: .35; pointer-events: none; }
+.sb .more { position: absolute; right: 5px; bottom: 5px; width: 0; height: 0; border-left: 4px solid transparent; border-bottom: 4px solid currentColor; opacity: .7; }
+.sb .dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--acc)); box-shadow: 0 0 calc(8px * var(--halo)) rgb(var(--acc)); }
+.sb.insert { background: rgb(var(--acc)); color: var(--on-acc); border-radius: 50%; width: 38px; height: 38px; margin: 4px 0;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .4), inset 0 0 10px rgb(200 232 255 / .55), 0 0 calc(18px * var(--halo)) rgb(var(--acc) / calc(.5 * var(--g) * var(--halo))); }
+.sb.insert[aria-expanded="true"] svg { transform: rotate(45deg); }
+.sb.insert svg { transition: transform .18s var(--ease); }
+.sep { width: 22px; height: 1px; background: var(--line-soft); margin: 5px 0; flex: none; }
+.grow { flex: 1; }
+

@@ -1,0 +1,24 @@
+/* ---- v7: frame-by-frame drawing ---- */
+#ink { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 5; }
+.bbar { left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 20px); overflow-x: auto; scrollbar-width: none; gap: 4px; padding: 4px 6px; visibility: hidden; }
+.bbar.show { visibility: visible; }
+.bbar::-webkit-scrollbar { display: none; }
+.bbar .seg { padding: 2px; flex: none; }
+.bbar .seg button { min-height: 34px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); }
+.bbar .fld { width: 104px; flex: none; height: 36px; }
+.bbar .ib { width: 36px; }
+.bcol { width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer; flex: none; margin: 0 3px; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--line), inset 0 0 0 1px rgb(0 0 0 / .25); }
+.celctl { display: flex; align-items: center; justify-content: flex-end; gap: 2px; padding-right: 8px; min-width: 0; }
+.celctl .ib { width: 36px; }
+.tl.drawsel { --gut: 168px; }
+.ck { position: absolute; top: 14px; width: 2px; height: 12px; margin-left: -1px; border-radius: 1px; background: var(--muted); pointer-events: none; }
+.celblk { position: absolute; top: 9px; bottom: 9px; border-left: 2px solid color-mix(in srgb, var(--hue) 90%, white); background: color-mix(in srgb, var(--hue) 16%, transparent); border-radius: 2px 5px 5px 2px; cursor: grab; touch-action: none; z-index: 1; }
+.celblk::after { content: ""; position: absolute; left: 4px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: color-mix(in srgb, var(--hue) 90%, white); }
+.celblk.empty::after { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--hue) 90%, white); }
+.celblk.on { background: color-mix(in srgb, var(--hue) 34%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 70%, transparent); }
+.celblk.drag { cursor: grabbing; box-shadow: var(--lit); }
+.app:has(.bbar.show) .toast { bottom: calc(var(--tlh) + 66px); }
+.onpop { width: 250px; display: grid; gap: 6px; }
+.onpop .seg button { padding: 0 6px; min-height: 30px; }
+.onpop .kv { min-height: 34px; }
+

@@ -1,0 +1,57 @@
+/* ---- viewport ------------------------------------------------------------------------------------- */
+.vp { grid-area: vp; position: relative; overflow: hidden; touch-action: none; min-width: 0;
+  background: var(--bg); background-image: radial-gradient(var(--line-soft) 1px, transparent 1.2px); background-size: 22px 22px; }
+.stage { position: absolute; transform-origin: 0 0; border-radius: 2px; box-shadow: 0 0 0 1px var(--line-soft), 0 12px 40px rgb(0 0 0 / .4); }
+.stage svg { display: block; width: 100%; height: 100%; }
+.selbox { position: absolute; pointer-events: none; border: 1.5px solid rgb(var(--acc)); border-radius: 2px; box-shadow: 0 0 calc(12px * var(--halo)) rgb(var(--acc) / .45); }
+.selbox i { position: absolute; width: 10px; height: 10px; background: var(--surface); border: 1.5px solid rgb(var(--acc)); border-radius: 3px; }
+.selbox i:nth-child(1) { left: -6px; top: -6px } .selbox i:nth-child(2) { right: -6px; top: -6px } .selbox i:nth-child(3) { left: -6px; bottom: -6px } .selbox i:nth-child(4) { right: -6px; bottom: -6px }
+.selbox b { position: absolute; left: 50%; top: -30px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: rgb(var(--acc)); }
+.selbox i, .selbox b { pointer-events: auto; touch-action: none; }
+.selbox i { cursor: nwse-resize; } .selbox i:nth-child(2), .selbox i:nth-child(3) { cursor: nesw-resize; } .selbox b { cursor: grab; }
+.selbox i::before, .selbox b::before { content: ""; position: absolute; inset: -11px; }
+@media (pointer: coarse) { .selbox i::before, .selbox b::before { inset: -17px; } }
+.selbox.multi { border-style: dashed; }
+.ovl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 4; }
+.ovl [data-mp] { pointer-events: auto; cursor: grab; touch-action: none; }
+.ovl .mp { fill: none; stroke: rgb(var(--acc)); stroke-width: 1.6; stroke-dasharray: 2 5; stroke-linecap: round; opacity: .9; }
+.ovl .mpd { fill: var(--surface); stroke: rgb(var(--acc)); stroke-width: 2; }
+.ovl .mpd.on { fill: rgb(var(--acc)); }
+.ovl .area { fill: rgb(var(--acc) / .1); stroke: rgb(var(--acc)); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.al { display: grid; grid-template-columns: repeat(3, 66px); gap: 6px; }
+.al button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 50px; border: 0; border-radius: 10px; background: var(--surface-2); box-shadow: var(--rest); color: var(--text); font-size: var(--fs-xs); cursor: pointer; }
+.al button:active { box-shadow: var(--lit-press); color: var(--acc-text); }
+.anim { display: grid; gap: 4px; padding: 6px 0; border-top: 1px solid var(--line-soft); }
+.anim:first-child { border-top: 0; padding-top: 0; }
+.stp { width: 30px !important; }
+#tcode { cursor: ew-resize; touch-action: none; }
+.wa-shade { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--surface) 62%, transparent); pointer-events: none; z-index: 1; }
+.wa { position: absolute; top: 12px; width: 8px; height: 16px; margin-left: -4px; padding: 0; border: 0; border-radius: 3px; background: rgb(var(--acc)); cursor: ew-resize; touch-action: none; z-index: 3; box-shadow: 0 0 calc(8px * var(--halo)) rgb(var(--acc) / .6); }
+.wa::before { content: ""; position: absolute; inset: -12px -14px; }
+.bar .trim { position: absolute; top: 0; bottom: 0; width: 9px; cursor: ew-resize; touch-action: none; }
+.bar .trim[data-trim="in"] { left: 0; border-left: 3px solid color-mix(in srgb, var(--hue) 85%, white); border-radius: 7px 0 0 7px; }
+.bar .trim[data-trim="out"] { right: 0; border-right: 3px solid color-mix(in srgb, var(--hue) 85%, white); border-radius: 0 7px 7px 0; }
+.bar .trim::before { content: ""; position: absolute; inset: -8px -12px; }
+.trow.sliding .bar { box-shadow: var(--lit); }
+.astripe { position: absolute; bottom: 6px; height: 3px; border-radius: 2px; background: rgb(var(--acc)); opacity: .85; pointer-events: none; }
+.kmq { position: absolute; z-index: 4; border: 1.5px dashed rgb(var(--acc)); background: rgb(var(--acc) / .1); border-radius: 3px; pointer-events: none; }
+.selbox b::after { content: ""; position: absolute; left: 5px; top: 12px; width: 1.5px; height: 16px; background: rgb(var(--acc)); }
+.guide { position: absolute; background: #ff4fa8; pointer-events: none; display: none; }
+.guide.v { top: 0; bottom: 0; width: 1px; } .guide.h { left: 0; right: 0; height: 1px; }
+.float { position: absolute; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  box-shadow: 0 0 0 1px var(--line-soft), 0 8px 24px rgb(0 0 0 / .3); z-index: 6; }
+.zoom { top: 10px; right: 10px; }
+.zoom .pct { min-width: 60px; height: 36px; border: 0; background: var(--surface-2); box-shadow: var(--rest); color: var(--text); font-size: var(--fs-s); cursor: ew-resize; border-radius: 9px; touch-action: none; }
+.zoom .pct.drag { box-shadow: var(--lit); color: var(--acc-text); }
+.zoom .ib { width: 36px; }
+.vsep { width: 1px; height: 22px; background: var(--line-soft); margin: 0 3px; }
+.qbar { left: 0; top: 0; visibility: hidden; transition: opacity .15s; }
+.qbar.show { visibility: visible; }
+.qb { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 52px; height: 46px; padding: 0 6px; border: 0; border-radius: 10px; background: none; color: var(--muted); cursor: pointer; font-size: 10.5px; }
+.qb:hover { color: var(--text); background: var(--surface-2); }
+.qb:active, .qb.on { color: var(--acc-text); background: var(--lit-bg); box-shadow: var(--lit); }
+.qb:disabled { opacity: .35; pointer-events: none; }
+.hud { position: absolute; left: 10px; top: 10px; font: 11px/1.5 var(--mono); color: var(--ok); background: rgb(0 0 0 / .55); padding: 4px 8px; border-radius: 6px; pointer-events: none; }
+.toolhint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font-size: var(--fs-s); color: var(--muted); background: color-mix(in srgb, var(--surface) 90%, transparent); padding: 6px 12px; border-radius: 99px; box-shadow: 0 0 0 1px var(--line-soft); pointer-events: none; white-space: nowrap; }
+

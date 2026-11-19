@@ -1,0 +1,56 @@
+/* Layout: "Console, folded" — 40pt top bar; 48pt icon strips (no labels) on both sides dock 280/264pt panel columns that auto-fold during canvas drags and playback;
+   the canvas takes the rest; a 58pt timeline peek at the bottom drags up into the dope sheet.
+   Portrait: the left panel becomes an overlay drawer, the right panel a bottom sheet. */
+:root {
+  --bg: #0e0d0c; --board: #090807; --surface: #171513; --surface-2: #201d1a; --surface-3: #2b2723;
+  --line: #3a342e; --line-soft: #27231f; --text: #f4efe9; --muted: #a89e93; --faint: #70675e;
+  --acc: 54 156 255; --mixw: #ffffff; --on-acc: #02132b;
+  --danger: #ff6b5e; --ok: #58d39b; --comp-bg: #15120f;
+  --g: 1; --halo: 1;
+  --acc-text: color-mix(in srgb, rgb(var(--acc)) 66%, var(--mixw));
+  --lit-bg: rgb(var(--acc) / calc(.15 * var(--g)));
+  --lit: inset 0 0 0 1px rgb(var(--acc) / calc(.6 * var(--g))), inset 0 0 14px rgb(var(--acc) / calc(.34 * var(--g))), 0 0 calc(16px * var(--halo)) rgb(var(--acc) / calc(.3 * var(--g) * var(--halo)));
+  --lit-press: inset 0 0 0 1px rgb(var(--acc) / calc(.8 * var(--g))), inset 0 0 20px rgb(var(--acc) / calc(.5 * var(--g))), 0 0 calc(22px * var(--halo)) rgb(var(--acc) / calc(.4 * var(--g) * var(--halo)));
+  --rest: inset 0 0 0 1px var(--line-soft), inset 0 1px 0 rgb(255 255 255 / .035);
+  --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fs-xs: 11px; --fs-s: 12.5px; --fs-m: 14px; --fs-l: 17px;
+  --r-field: 6px; --r-btn: 10px; --r-panel: 14px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --name: 232px; --gut: 12px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #ebe6df; --board: #d9d2c8; --surface: #fbf8f4; --surface-2: #f3eee8; --surface-3: #e7e0d7;
+    --line: #d3c9bd; --line-soft: #e6dfd5; --text: #1e1a16; --muted: #675e55; --faint: #9a9085;
+    --mixw: #000000; --danger: #c23b2e; --ok: #17865a; --comp-bg: #fffdf9; --halo: 0;
+    --rest: inset 0 0 0 1px var(--line), inset 0 1px 0 rgb(255 255 255 / .6);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #ebe6df; --board: #d9d2c8; --surface: #fbf8f4; --surface-2: #f3eee8; --surface-3: #e7e0d7;
+  --line: #d3c9bd; --line-soft: #e6dfd5; --text: #1e1a16; --muted: #675e55; --faint: #9a9085;
+  --mixw: #000000; --danger: #c23b2e; --ok: #17865a; --comp-bg: #fffdf9; --halo: 0;
+  --rest: inset 0 0 0 1px var(--line), inset 0 1px 0 rgb(255 255 255 / .6);
+  color-scheme: light;
+}
+:root[data-tint="warm"] { --acc: 38 198 232; }
+:root[data-glow="soft"] { --g: .5; }
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--board); color: var(--text); font: var(--fs-m)/1.35 var(--ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px; overflow: hidden; -webkit-user-select: none; user-select: none; overscroll-behavior: none;
+}
+input, textarea { -webkit-user-select: text; user-select: text; font: inherit; }
+button { font: inherit; color: inherit; }
+.tc { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+svg.i.s { width: 16px; height: 16px; } svg.i.xs { width: 13px; height: 13px; }
+svg.i .f { fill: currentColor; stroke: none; }
+

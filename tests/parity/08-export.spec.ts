@@ -61,6 +61,7 @@ test('MP4 (H.264 via WebCodecs)', async ({ page }) => {
 test('cancel stops a running export', async ({ page }) => {
   const dlg = await startExport(page, 'PNG', true); // 4K at 30 fps, so it is still running when Cancel is tapped
   await dlg.locator('[data-act="excancel"]').click();
-  await expect(dlg.locator('[data-act="queue"]')).toBeVisible();
+  // The export checks for Cancel between frames, and one 4K frame can take a few seconds on a slow machine or the dev server.
+  await expect(dlg.locator('[data-act="queue"]')).toBeVisible({ timeout: 30_000 });
   await expect(dlg.locator('[data-act="exsave"]')).toHaveCount(0);
 });

@@ -1,0 +1,8 @@
+.lname{width:100%;min-height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--line,#ffffff22);background:var(--field,#ffffff0d);color:inherit;font:inherit;font-size:var(--fs-s)}
+.mkrow{display:flex;align-items:center;gap:6px;padding:2px 0}
+.save.off{opacity:.5}
+.ttrack .bar .wave{position:absolute;inset:2px 6px;width:calc(100% - 12px);height:calc(100% - 4px);pointer-events:none;overflow:visible}
+.ttrack .bar .wave path{stroke:var(--hue,#8b7cf6);stroke-width:.6;vector-effect:non-scaling-stroke;opacity:.85}
+.mtag{margin-left:6px;padding:1px 6px;border-radius:6px;background:rgb(var(--acc) / .14);color:var(--acc-text);font-size:var(--fs-xs);font-weight:500}
+.shcv{width:100%;height:100%;display:block}
+.shcode{width:100%;min-height:260px;max-height:50vh;resize:vertical;padding:10px;border-radius:10px;border:1px solid var(--line,#ffffff22);background:var(--field,#0000000d);color:inherit;font:12px/1.45 Menlo,'SF Mono',ui-monospace,monospace;tab-size:2;white-space:pre}

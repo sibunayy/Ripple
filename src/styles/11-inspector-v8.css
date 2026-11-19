@@ -1,0 +1,51 @@
+/* ---- v8: inspector hierarchy pass (iPad touch + Pencil) ----
+   Order: identity header → Transform → Layer (opacity, blend) → content (Text / Shape / Path …) → Fill & stroke → extras → Timing & links.
+   Hierarchy: section title (14px, text colour) > group label (11px caps, faint) > property label (12.5px, muted). */
+.app.right-open:not(.portrait) { --rw: 296px; }
+.panel.r > .inner { width: 296px; }
+#rpanel .phead { padding: 10px 8px 10px 14px; gap: 8px; border-bottom: 1px solid var(--line-soft); min-height: 56px; }
+#rpanel .phead .chip-dot { width: 14px; height: 14px; }
+#rpanel .phead .idn { flex: 1; min-width: 0; display: grid; gap: 0; }
+#rpanel .phead .ity { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 0; }
+#rpanel .phead .lname { min-height: 32px; padding: 0 6px; margin-left: -6px; width: calc(100% + 6px); border-color: transparent; background: transparent; font-size: var(--fs-m); font-weight: 650; border-radius: var(--r-field); text-overflow: ellipsis; }
+#rpanel .phead .lname:hover { background: var(--surface-2); }
+#rpanel .phead .lname:focus { outline: none; background: var(--surface-2); box-shadow: var(--lit); }
+#rpanel .phead .ib { width: 36px; height: 36px; }
+#rpanel .sec:first-child { border-top: 0; }
+#rpanel .sec-h { height: 44px; padding: 0 12px 0 14px; color: var(--text); font-size: var(--fs-m); font-weight: 650; letter-spacing: -.005em; text-transform: none; }
+#rpanel .sec-h .chev { color: var(--faint); }
+#rpanel .sec-h .count { font-size: var(--fs-xs); padding: 1px 7px; border-radius: 99px; background: var(--lit-bg); }
+#rpanel .sec-b { padding: 0 14px 14px; gap: 6px; }
+#rpanel .sublbl { padding: 10px 0 0; }
+#rpanel .sec-b > .sublbl:first-child { padding-top: 0; }
+#rpanel .fld, #rpanel .sel { height: 38px; }
+#rpanel .cchip { min-height: 38px; }
+#rpanel .seg button { min-height: 32px; }
+#rpanel .pair.fw { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+#rpanel .fillrow { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 6px; }
+#rpanel .fillrow .cchip { min-width: 0; gap: 8px; }
+#rpanel .fillrow .cchip > span:not(.cc) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rpanel .kv.sh { min-height: 34px; padding-top: 6px; }
+#rpanel .kv.sh .sublbl { padding: 0; }
+/* property rows: label on top; values and the keyframe controls share one line, so every ◆ lines up */
+#rpanel .prop { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'lbl lbl' 'pv kc'; gap: 3px 2px; min-height: 0; padding: 2px 0 6px; }
+#rpanel .prop .plbl { grid-area: lbl; display: flex; align-items: center; gap: 6px; min-height: 20px; font-size: var(--fs-s); color: var(--muted); }
+#rpanel .prop.is-anim .plbl > span { color: var(--acc-text); }
+#rpanel .prop .pv { grid-area: pv; gap: 6px; }
+#rpanel .prop .pv .fld { padding: 0 10px; }
+#rpanel .prop .kc { grid-area: kc; }
+#rpanel .prop .kc button { height: 38px; width: 26px; }
+#rpanel .prop .kc .kd { width: 34px; }
+#rpanel .fld .axg { font: 600 var(--fs-xs)/1 var(--ui); color: var(--faint); letter-spacing: .02em; }
+#rpanel .plbl .lk { position: relative; margin-left: auto; border: 0; background: none; color: var(--acc-text); font-size: var(--fs-xs); font-weight: 600; padding: 2px 6px; border-radius: 6px; cursor: pointer; }
+#rpanel .plbl .lk::before { content: ""; position: absolute; inset: -12px -8px; }
+#rpanel .al6 { gap: 4px; }
+#rpanel .al6 button { height: 40px; border-radius: 9px; }
+#rpanel .three { gap: 6px; }
+@media (pointer: coarse) {
+  #rpanel .fld, #rpanel .sel, #rpanel .cchip { height: 42px; min-height: 42px; }
+  #rpanel .prop .kc button { height: 42px; }
+  #rpanel .sec-h { height: 48px; }
+  #rpanel .seg button { min-height: 36px; }
+  #rpanel .al6 button { height: 44px; }
+}

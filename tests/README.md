@@ -13,3 +13,9 @@ npm run test:parity
 - `npm run test:parity:update` re-records the reference screenshots. Only do this on the legacy target, and only on purpose.
 
 Files: `00` load and screenshots · `01` tools and canvas · `02` inspector · `03` text and shapes · `04` effects, easing, presets · `05` timeline · `06` drawing · `07` shaders · `08` export · `09` persistence, theme, portrait.
+
+## Running against the port
+
+- `npm run test:parity` runs against the prototype in `legacy/`.
+- `npm run test:parity:app` builds the app and runs against the build (what gets deployed).
+- `node scripts/with-env.mjs RF_TARGET=dev npx playwright test` runs against the dev server.

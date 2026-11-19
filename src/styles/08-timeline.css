@@ -1,0 +1,50 @@
+/* ---- timeline ------------------------------------------------------------------------------------- */
+.tl { grid-area: tl; position: relative; background: var(--surface); border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; min-height: 0; overflow: hidden; z-index: 32; }
+.tl-handle { position: absolute; left: 50%; top: 0; width: 120px; margin-left: -60px; height: 16px; z-index: 3; cursor: ns-resize; touch-action: none; border: 0; background: none; padding: 0; }
+.tl-handle::after { content: ""; position: absolute; left: 40px; right: 40px; top: 5px; height: 4px; border-radius: 2px; background: var(--line); }
+.tl-handle:hover::after, .tl-handle.drag::after { background: rgb(var(--acc)); box-shadow: 0 0 calc(8px * var(--halo)) rgb(var(--acc)); }
+.peek { flex: none; height: 57px; display: grid; grid-template-columns: var(--name) minmax(0, 1fr) var(--gut); align-items: center; }
+.peek .ctl { display: flex; align-items: center; gap: 4px; padding-left: 8px; min-width: 0; }
+.play { width: 44px; height: 40px; border-radius: 12px; border: 0; cursor: pointer; display: grid; place-items: center; background: var(--lit-bg); color: var(--acc-text); box-shadow: var(--lit); }
+.play:active { box-shadow: var(--lit-press); }
+.time { display: flex; flex-direction: column; line-height: 1.15; padding: 0 6px; min-width: 0; }
+.time b { font-size: var(--fs-m); font-weight: 600; }
+.time span { font-size: var(--fs-xs); color: var(--faint); white-space: nowrap; }
+.ak { margin-left: auto; margin-right: 6px; width: 40px; height: 36px; }
+.ak .rec { width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; }
+.ak.on .rec { background: rgb(var(--acc)); border-color: rgb(var(--acc)); box-shadow: 0 0 calc(10px * var(--halo)) rgb(var(--acc)); }
+.track { position: relative; height: 100%; touch-action: none; cursor: pointer; }
+.ruler { position: absolute; inset: 0; }
+.ruler .tk { position: absolute; bottom: 6px; font-size: 10.5px; color: var(--faint); transform: translateX(-50%); font-family: var(--mono); }
+.ruler .tk::before { content: ""; position: absolute; left: 50%; bottom: 15px; width: 1px; height: 6px; background: var(--line); }
+.ruler .tk.min::before { height: 3px; } .ruler .tk.min { color: transparent; }
+.scrubbar { position: absolute; left: 0; right: 0; top: 16px; height: 8px; border-radius: 4px; background: var(--surface-2); box-shadow: var(--rest); }
+.scrubbar .done { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--pf) * 100%); border-radius: 4px; background: rgb(var(--acc) / calc(.22 * var(--g) + .06)); }
+.pk { position: absolute; top: 15px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); background: var(--text); border-radius: 1.5px; opacity: .85; pointer-events: none; }
+.mk { position: absolute; top: 2px; width: 10px; height: 12px; margin-left: -5px; background: var(--muted); clip-path: polygon(0 0, 100% 0, 100% 65%, 50% 100%, 0 65%); pointer-events: none; }
+.ph { position: absolute; top: 0; bottom: 0; left: calc(var(--pf) * 100%); width: 2px; margin-left: -1px; background: rgb(var(--acc)); box-shadow: 0 0 calc(10px * var(--halo)) rgb(var(--acc) / .8); pointer-events: none; z-index: 2; }
+.ph::before { content: ""; position: absolute; top: 9px; left: -6px; width: 14px; height: 20px; border-radius: 5px; background: rgb(var(--acc)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .4); }
+.tl-body { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line-soft); }
+.tl-tools { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 8px; overflow-x: auto; scrollbar-width: none; }
+.tl-tools .seg button { min-height: 30px; }
+.tl-rows { position: relative; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.tl-rows .phl { position: absolute; top: 0; bottom: 0; left: calc(var(--name) + (100% - var(--name) - var(--gut)) * var(--pf)); width: 2px; margin-left: -1px; background: rgb(var(--acc)); box-shadow: 0 0 calc(10px * var(--halo)) rgb(var(--acc) / .7); pointer-events: none; z-index: 3; }
+.trow { display: grid; grid-template-columns: var(--name) minmax(0, 1fr) var(--gut); align-items: center; min-height: 40px; border-top: 1px solid var(--line-soft); }
+.trow.sub { min-height: 36px; background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.trow .nmc { display: flex; align-items: center; gap: 6px; padding-left: 4px; min-width: 0; height: 100%; cursor: pointer; }
+.trow.sub .nmc { padding-left: 34px; color: var(--muted); font-size: var(--fs-s); }
+.trow .nmc .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trow.sel > .nmc .nm { color: var(--acc-text); font-weight: 600; }
+.trow .ib { width: 32px; height: 32px; }
+.ttrack { position: relative; height: 100%; touch-action: none; }
+.bar { position: absolute; top: 8px; bottom: 8px; left: 0; right: 0; border-radius: 7px; background: color-mix(in srgb, var(--hue) 20%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 42%, transparent), inset 0 0 12px color-mix(in srgb, var(--hue) calc(18% * var(--g)), transparent); }
+.trow.sel .bar { background: color-mix(in srgb, var(--hue) 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue) 70%, transparent), inset 0 0 16px color-mix(in srgb, var(--hue) 30%, transparent); }
+.dk { position: absolute; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border: 0; background: none; padding: 0; cursor: pointer; display: grid; place-items: center; touch-action: none; }
+.dk::after { content: ""; width: 10px; height: 10px; transform: rotate(45deg); border-radius: 1.5px; background: var(--text); box-shadow: 0 0 0 1.5px var(--surface); }
+.trow.sub .dk::after { background: var(--muted); }
+.trow .dk.sel::after { background: rgb(var(--acc)); box-shadow: 0 0 0 1.5px var(--surface), 0 0 calc(10px * var(--halo)) rgb(var(--acc)); }
+.graph { width: 100%; height: 100%; display: block; touch-action: none; overflow: visible; cursor: crosshair; }
+.graph [data-gk], .graph [data-gh] { cursor: grab; }
+.graph path { fill: none; stroke-width: 2; }
+.graph .gl { stroke: var(--line-soft); }
+

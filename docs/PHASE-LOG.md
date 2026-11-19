@@ -21,3 +21,20 @@ These are recorded so that nobody "fixes" them by accident during the port. Fix 
 
 - Playwright's WebKit on Windows has no WebCodecs and no WebGPU. There, the MP4 test checks the app's "needs WebCodecs" message and shaders run on the WebGL2 fallback. Desktop Chromium runs the real MP4 encode. Real iPad Safari still needs a manual check in phase 5.
 - Touch, Pencil (pressure and tilt), pinch and multi-finger taps are simulated with synthetic pointer and touch events. A small test-only shim lets `setPointerCapture` accept these synthetic pointers. App code is not changed.
+
+## Phase 1: scaffold (done)
+
+- Vite 6 + TypeScript 5 (build tools only; still no runtime dependencies). `npm run dev` starts the app, `npm run build` writes `dist/`, `npm run preview` serves the build.
+- `index.html` holds the DOM skeleton, copied verbatim. `src/legacy-main.ts` holds the whole prototype script, copied verbatim (with `// @ts-nocheck` for now).
+- The CSS is split into `src/styles/00-host.css` … `11-inspector-v8.css` and imported in the source order through `src/styles/index.css`. The v8 inspector pass loads last. `scripts/extract-phase1.mjs` made the split and checks that the joined CSS equals the source byte for byte.
+- CSS minification is off in the build so the CSS text stays exactly as written.
+- The build uses relative paths (`base: './'`), so it works from any folder, including a GitHub Pages sub-path.
+- Result: all 220 parity tests pass on the build (`npm run test:parity:app`) and on the dev server (`RF_TARGET=dev`). All 33 screenshots match the reference with zero pixel difference in WebKit.
+
+### Quirk found while porting (kept)
+
+6. The text-animator rule `.anim:first-child { padding-top: 0; border-top: 0 }` also matches the app frame (`<div class="app anim">`) when it is the first element in `<body>`. In the prototype a `<style>` tag came first, so the frame kept a 6 px top padding and a 1 px top line. `index.html` keeps an element (`<noscript>`) before the frame so the look stays the same.
+
+### Test change
+
+- The export Cancel test now waits up to 30 s for the cancel to take effect, because the export checks for Cancel between frames and one 4K frame can take several seconds on the dev server.
