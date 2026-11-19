@@ -11,6 +11,7 @@ import { renderDialog } from '../ui/dialog';
 import { toast } from '../ui/toast';
 import { setPF } from '../ui/layout';
 import { play } from '../playback/loop';
+import { saveFile } from '../host/save-file';
 
 /* ---------- export: GIF + MP4 (all in the browser, no libraries) ---------- */
 export const EX = { fmt: 'MP4', res: { MP4: 1080, GIF: 540, PNG: 1080 }, fps: { MP4: 30, GIF: 15, PNG: 30 }, trans: false };
@@ -39,9 +40,7 @@ export async function runExport() {
 }
 export const exSave = async () => {
   const j = exportJob; if (!j || !j.blob) return;
-  let dl = null; try { dl = (window as any).claude && await (window as any).claude.use('downloads'); } catch { dl = null; }
-  if (dl) { try { await dl.save({ filename: j.name, data: j.blob }); } catch (e) { if (e && e.code !== 'declined') toast('Could not save the file' + (e && e.message ? ': ' + e.message : '')); } return; }
-  const a = document.createElement('a'); a.href = j.url; a.download = j.name; document.body.appendChild(a); a.click(); a.remove();
+  await saveFile(j.name, j.blob, j.url, (msg) => toast(msg));
 };
 export function exportDialog() {
   const fmt = EX.fmt, j = exportJob, run = j && j.status === 'run';

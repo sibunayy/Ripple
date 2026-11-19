@@ -102,3 +102,20 @@ src/
 - `.github/workflows/ci.yml` runs typecheck, lint, unit tests and the build on GitHub. The screenshot
   parity suite stays local, because its reference images depend on the machine's fonts.
 - Parity: 234/234 on the build.
+
+## Phase 5: host adapter
+
+- `src/host/save-file.ts` is the only code that knows where the app runs. Export Save calls it:
+  1. Inside the Claude artifact host, it uses the host's downloads service, as the prototype did.
+  2. On a touch device that can share files (iPad Safari), it opens the share sheet: Save to Files,
+     or Save Video / Save Image for MP4 and GIF. Closing the sheet does nothing.
+  3. Everywhere else, and if sharing fails, it uses a normal download link.
+  Nothing is awaited before `navigator.share`, because Safari only allows it straight after the tap.
+- `index.html` head: title "RippleFlow", `lang="en"`, a description, `viewport-fit=cover`.
+  The `claude:viewport-fit-sides` meta is gone.
+- `00-host.css` stays first in the cascade. It holds the base body styles and the safe-area padding.
+  Only a comment explaining where it came from was added.
+- New `tests/parity/11-host-save.spec.ts` (port only) stubs the share sheet. It checks that Save shares the
+  file and does not download, and that closing the sheet shows no error.
+- Parity: 238/238 on the build and on the dev server. Legacy: 234/234. Unit: 25/25.
+- Not yet checked on a real iPad. Playwright WebKit has no share sheet.
