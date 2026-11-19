@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, $$, app } from '../core/dom';
 import { DUR, layers } from '../model/project';
 import { earr } from '../anim/easing';
@@ -55,7 +54,7 @@ export function tlDrag(e) {
     hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); hd.removeEventListener('pointercancel', up);
     const H = app.clientHeight, cur = S.tlPx ?? h0;
     if (!moved) S.tl = S.tl === 'peek' ? 'mid' : 'peek';
-    else { const opts = [['peek', 58], ['mid', H * .4], ['tall', H * .64]]; S.tl = opts.reduce((a, b) => (Math.abs(b[1] - cur) < Math.abs(a[1] - cur) ? b : a))[0]; }
+    else { const opts: [string, number][] = [['peek', 58], ['mid', H * .4], ['tall', H * .64]]; S.tl = opts.reduce((a, b) => (Math.abs(b[1] - cur) < Math.abs(a[1] - cur) ? b : a))[0]; }
     S.tlPx = null; app.classList.add('anim'); renderAll(); setTimeout(layoutStage, 240);
   };
   hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up); hd.addEventListener('pointercancel', up);
@@ -116,7 +115,7 @@ export function keyDown(e, dk) {
 export function fieldDrag(e, fl) {
   e.preventDefault();
   const o = fl.dataset.o, isObj = o != null, isOpt = o === 'po' || o === 'br' || o === 'on';
-  const l = isOpt ? {} : lay(isObj ? S.sel : fl.dataset.l); if (!l) return;
+  const l: any = isOpt ? {} : lay(isObj ? S.sel : fl.dataset.l); if (!l) return;
   const p = fl.dataset.p, key = fl.dataset.k, ii = +fl.dataset.i, isInt = fl.dataset.int === '1';
   const tgt = () => (o === 'br' ? brushCur() : o === 'on' ? S.onion : isOpt ? S : o === 'fx' ? l.fx[ii] : o === 'rep' ? l.rep : o === 'mod' ? (l.mods || [])[ii] : o === 'an' ? (l.anims || [])[ii] : l);
   if (isObj && !tgt()) return;
@@ -144,7 +143,7 @@ export function fieldDrag(e, fl) {
     if (moved) { if (isOpt) { renderRight(); renderBrushBar(); if (S.pop && S.pop.type === 'onion') renderPop(); return; } commit('Edit ' + m.label); renderTop(); renderTL(); renderRight(); placeSel(); return; }
     // tap: type an exact value
     const span = fl.querySelector('.v'), cur = getV();
-    const inp = document.createElement('input'); inp.type = 'text'; inp.inputMode = 'decimal'; inp.value = Math.round(cur * 10) / 10; inp.setAttribute('aria-label', fl.getAttribute('aria-label'));
+    const inp = document.createElement('input'); inp.type = 'text'; inp.inputMode = 'decimal'; inp.value = (Math.round(cur * 10) / 10) as any; // the browser turns it into text inp.setAttribute('aria-label', fl.getAttribute('aria-label'));
     span.replaceWith(inp); inp.focus(); inp.select();
     const done = (ok) => { if (ok) { const nv = parseFloat(inp.value); if (!isNaN(nv)) { setV(clamp(nv, m.min, m.max)); if (!isOpt) commit('Edit'); } } renderBrushBar(); if (S.pop && S.pop.type === 'onion') renderPop(); renderRight(); renderTL(); renderTop(); };
     inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === 'Tab') { ev.preventDefault(); inp.onblur = null; done(true); } if (ev.key === 'Escape') { inp.onblur = null; done(false); } });

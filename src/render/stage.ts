@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, $$ } from '../core/dom';
 import { DUR, FPS, compBg, layers } from '../model/project';
 import { lay, val } from '../anim/interpolate';

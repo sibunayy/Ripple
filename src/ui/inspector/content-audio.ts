@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { aud } from '../../playback/audio';
 import { grid2, pf, sec, tc } from './controls';
 import { FPS } from '../../model/project';

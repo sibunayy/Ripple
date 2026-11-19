@@ -1,4 +1,3 @@
-// @ts-nocheck
 // RippleFlow entry point. Loads the styles, the modules, registers the event listeners in the
 // original order, then boots the app.
 import './styles/index.css';

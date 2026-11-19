@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 /* ---- effects ---- */
 // ps: [key, label, min, max, step per point, unit, default]

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { esc } from '../../core/dom';
 import { ic } from '../icons';
 import { FXDEF } from '../../fx/defs';

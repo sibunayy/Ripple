@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $ } from '../core/dom';
 import { layers } from '../model/project';
 import { lay, val } from '../anim/interpolate';
@@ -37,7 +36,7 @@ export function canvasDown(e) {
   if (ptrs.size === 2) { foldStart('drag'); const [a, b] = [...ptrs.values()], v = vp.getBoundingClientRect(); pinch0 = { d: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), z: S.zoom, pan: [...S.pan], c: [(a[0] + b[0]) / 2 - v.left, (a[1] + b[1]) / 2 - v.top] }; setDragging(false); return; }
   if (S.eyedrop) {
     const g = e.target.closest('g[data-id]'), src = g && lay(g.dataset.id), dst = S.sel && lay(S.sel);
-    const key = typeof S.eyedrop === 'string' ? S.eyedrop : 'hue'; S.eyedrop = false; renderFloats();
+    const key: string = typeof S.eyedrop === 'string' ? S.eyedrop : 'hue'; S.eyedrop = false; renderFloats();
     if (key === 'brush' && src) { S.brush.c = src.hue; saveBrush(); renderBrushBar(); toast(`Brush colour ${String(src.hue).toUpperCase()} from ${src.name}`); return; }
     if (src && dst) { dst[key] = src.hue; commit('Pick colour'); buildCanvas(); renderAll(); toast(`Picked ${String(src.hue).toUpperCase()} from ${src.name}`, true); }
     else toast('No layer there. Tap the eyedropper and try again.');

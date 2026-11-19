@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { lay, val } from '../../anim/interpolate';
 import { S, selIds } from '../../state/state';
 import { commit } from '../../state/history';

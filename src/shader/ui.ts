@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { esc } from '../core/dom';
 import { lay } from '../anim/interpolate';
 import { S } from '../state/state';

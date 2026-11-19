@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { BLENDS, propRow, selH } from './controls';
 
 /** Layer section: opacity (can be keyframed) and blend mode. */

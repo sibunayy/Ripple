@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $$ } from '../core/dom';
 import { layers } from '../model/project';
 import { lay } from '../anim/interpolate';

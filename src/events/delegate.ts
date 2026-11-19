@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $ } from '../core/dom';
 import { HUES, layers, markers, saveProj, setProjName } from '../model/project';
 import { earr } from '../anim/easing';
@@ -48,14 +47,14 @@ export function listen() {
   /* ---------- events ---------- */
   document.addEventListener('click', (e) => {
     if (suppressClick) { suppressClick = false; e.preventDefault(); return; }
-    const el = e.target.closest('[data-act]');
-    if (S.pop && !e.target.closest('.pop') && !(el && ['menu', 'insert', 'addfx', 'colour', 'anchorpick', 'bcolour', 'onionpop', 'align'].includes(el.dataset.act))) { S.pop = null; renderPop(); renderTop(); renderStrips(); if (!el) return; }
+    const el = (e.target as any).closest('[data-act]');
+    if (S.pop && !(e.target as any).closest('.pop') && !(el && ['menu', 'insert', 'addfx', 'colour', 'anchorpick', 'bcolour', 'onionpop', 'align'].includes(el.dataset.act))) { S.pop = null; renderPop(); renderTop(); renderStrips(); if (!el) return; }
     if (!el || el.tagName === 'LABEL') return;
     const f = A[el.dataset.act]; if (f) f(el, e);
   });
   $('#scrim').addEventListener('click', () => { S.left = null; renderAll(); });
   document.addEventListener('change', (e) => {
-    const t = e.target;
+    const t: any = e.target; // delegated: any element in the app
     if (t.dataset && t.dataset.sel) {
       const l = S.sel && lay(S.sel); if (!l) return; const k = t.dataset.sel, i = +t.dataset.i;
       if (k === 'font') { l.font = t.value; l.weight = snapW(l); commit('Font'); renderRight(); buildCanvas(); }
@@ -85,7 +84,7 @@ export function listen() {
     }
   });
   document.addEventListener('input', (e) => {
-    const t = e.target;
+    const t: any = e.target; // delegated: any element in the app
     if (t.id === 'lq' || t.id === 'aq') { S[t.id] = t.value; const pos = t.selectionStart; renderLeft(); const n = $('#' + t.id); n.focus(); n.setSelectionRange(pos, pos); }
     if (t.id === 'pq') { S.q = t.value; const pos = t.selectionStart; renderRight(); const n = $('#pq'); n.focus(); n.setSelectionRange(pos, pos); }
     if (t.id === 'cphex' && cp && /^#[0-9a-f]{6}$/i.test(t.value)) { Object.assign(cp, hexToHsv(t.value)); cpApply(t.value.toLowerCase()); }
@@ -95,11 +94,11 @@ export function listen() {
     if (t.id === 'ltext') { const l = lay(S.sel); l.text = t.value || ' '; l.name = ((t.value || 'Text').split('\n')[0] || 'Text').slice(0, 32); buildCanvas(); }
   });
   document.addEventListener('focusout', (e) => {
-    if (e.target.id === 'lname') { const l = lay(S.sel); if (l) { if (!l.name.trim()) l.name = TYPE_NAME[l.type] || 'Layer'; commit('Rename layer'); renderLeft(); renderTL(); renderRight(); } }
-    if (e.target.dataset && e.target.dataset.mkn != null) { commit('Rename marker'); renderTL(); } if (e.target.id === 'ltext') { commit('Edit text'); renderLeft(); renderTL(); renderTop(); } });
-  document.addEventListener('contextmenu', (e) => { if (e.target.closest('[data-ctx],[data-dk],#shapebtn,#selbtn,#brushbtn,[data-onion],[data-flip],[data-cel],#vp,[data-kj],.fld,.bar')) e.preventDefault(); });
+    if ((e.target as any).id === 'lname') { const l = lay(S.sel); if (l) { if (!l.name.trim()) l.name = TYPE_NAME[l.type] || 'Layer'; commit('Rename layer'); renderLeft(); renderTL(); renderRight(); } }
+    if ((e.target as any).dataset && (e.target as any).dataset.mkn != null) { commit('Rename marker'); renderTL(); } if ((e.target as any).id === 'ltext') { commit('Edit text'); renderLeft(); renderTL(); renderTop(); } });
+  document.addEventListener('contextmenu', (e) => { if ((e.target as any).closest('[data-ctx],[data-dk],#shapebtn,#selbtn,#brushbtn,[data-onion],[data-flip],[data-cel],#vp,[data-kj],.fld,.bar')) e.preventDefault(); });
   document.addEventListener('pointerdown', (e) => {
-    const t = e.target;
+    const t: any = e.target; // delegated: any element in the app
     // shapes flyout on the rail
     if (t.closest('#shapebtn')) { longPress(e, () => { S.pop = { type: 'shapes' }; renderPop(); }); return; }
     if (t.closest('#selbtn')) { longPress(e, () => { S.pop = { type: 'selmodes' }; renderPop(); }); return; }

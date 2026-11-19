@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { DUR } from '../model/project';
 import { rasterFrame } from './raster';
 
@@ -38,12 +37,12 @@ export async function exportMp4(job, w, h, fps, nF) {
   let cfg = null;
   for (const codec of [w * h > 2100000 ? 'avc1.640033' : 'avc1.64002A', 'avc1.4D4028', 'avc1.42E01F']) {
     const c = { codec, width: w, height: h, bitrate, framerate: fps, avc: { format: 'avc' } };
-    try { const s = await VideoEncoder.isConfigSupported(c); if (s.supported) { cfg = s.config || c; cfg.avc = { format: 'avc' }; break; } } catch { /* try next */ }
+    try { const s = await VideoEncoder.isConfigSupported(c as any); if (s.supported) { cfg = s.config || c; cfg.avc = { format: 'avc' }; break; } } catch { /* try next */ }
   }
   if (!cfg) throw new Error(`This device can't encode ${w}×${h} H.264. Try a lower resolution.`);
   const samples = []; let avcC = null, err = null;
   const enc = new VideoEncoder({
-    output: (chunk, meta) => { if (meta && meta.decoderConfig && meta.decoderConfig.description) avcC = new Uint8Array(meta.decoderConfig.description instanceof ArrayBuffer ? meta.decoderConfig.description : meta.decoderConfig.description.buffer.slice(meta.decoderConfig.description.byteOffset, meta.decoderConfig.description.byteOffset + meta.decoderConfig.description.byteLength)); const d = new Uint8Array(chunk.byteLength); chunk.copyTo(d); samples.push({ data: d, key: chunk.type === 'key' }); },
+    output: (chunk, meta) => { if (meta && meta.decoderConfig && meta.decoderConfig.description) avcC = new Uint8Array(meta.decoderConfig.description instanceof ArrayBuffer ? meta.decoderConfig.description : (meta.decoderConfig.description as ArrayBufferView).buffer.slice((meta.decoderConfig.description as ArrayBufferView).byteOffset, (meta.decoderConfig.description as ArrayBufferView).byteOffset + (meta.decoderConfig.description as ArrayBufferView).byteLength)); const d = new Uint8Array(chunk.byteLength); chunk.copyTo(d); samples.push({ data: d, key: chunk.type === 'key' }); },
     error: (e) => { err = e; },
   });
   enc.configure(cfg);

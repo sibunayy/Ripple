@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S } from '../state/state';
 import { clamp } from '../ui/graph';
 import { BLANK, celIdx, exporting } from './cels';
@@ -90,7 +89,7 @@ export function rasterCel(c) {
   let bb = null;
   for (const s of c.strokes) { const b = paintStroke(rx, s); if (b && s.k !== 'erase') bb = bb ? [Math.min(bb[0], b[0]), Math.min(bb[1], b[1]), Math.max(bb[2], b[2]), Math.max(bb[3], b[3])] : b; }
   rx.setTransform(1, 0, 0, 1, 0, 0);
-  const e = { sig: c.strokes.length + ':' + (c.v || 0), url: BLANK, x: 0, y: 0, w: 0, h: 0 };
+  const e: any = { sig: c.strokes.length + ':' + (c.v || 0), url: BLANK, x: 0, y: 0, w: 0, h: 0 };
   if (bb) {
     const X0 = Math.max(0, Math.floor(bb[0] + 960)), Y0 = Math.max(0, Math.floor(bb[1] + 540)), X1 = Math.min(1920, Math.ceil(bb[2] + 960)), Y1 = Math.min(1080, Math.ceil(bb[3] + 540));
     if (X1 > X0 && Y1 > Y0) {
@@ -102,7 +101,7 @@ export function rasterCel(c) {
   celCache.set(c, e); return e;
 }
 export function celRaster(c) { const e = celCache.get(c); return e && e.sig === c.strokes.length + ':' + (c.v || 0) ? e : rasterCel(c); }
-const setImg = (im, e, op) => { im.setAttribute('href', e.url); im.setAttribute('x', e.x); im.setAttribute('y', e.y); im.setAttribute('width', e.w); im.setAttribute('height', e.h); if (op != null) im.setAttribute('opacity', op); };
+const setImg = (im, e, op?) => { im.setAttribute('href', e.url); im.setAttribute('x', e.x); im.setAttribute('y', e.y); im.setAttribute('width', e.w); im.setAttribute('height', e.h); if (op != null) im.setAttribute('opacity', op); };
 /* ---- per-frame: exposed cel + onion skins ---- */
 export function drawXf(l, xf, i, f) {
   const im = xf.querySelector('image.cel'), on = xf.querySelector('.onion'); if (!im) return;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { advHtml, behHtml, normShape, repHtml } from './extras';
 import { selIds } from '../../state/state';
 import { inspectorHeader } from './header';

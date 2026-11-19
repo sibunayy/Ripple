@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { compBg } from '../model/project';
 import { lay } from '../anim/interpolate';
 import { S } from '../state/state';

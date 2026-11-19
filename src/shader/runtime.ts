@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $$ } from '../core/dom';
 import { FPS, layers } from '../model/project';
 import { lay } from '../anim/interpolate';
@@ -8,10 +7,10 @@ import { SH, SH_GLSL_POST, SH_GLSL_PRE, SH_WGSL_POST, SH_WGSL_PRE, shLang, shPre
 import { renderRight } from '../ui/inspector/index';
 import { renderDialog } from '../ui/dialog';
 
-export let gpuState = navigator.gpu ? 'pending' : 'none', gpuDev = null, gpuFmt = null;
-if (navigator.gpu) {
-  navigator.gpu.requestAdapter().then((a) => (a ? a.requestDevice() : null)).then((d) => {
-    gpuDev = d; gpuState = d ? 'ok' : 'none'; if (d) { gpuFmt = navigator.gpu.getPreferredCanvasFormat(); d.lost.then(() => { gpuState = 'none'; gpuDev = null; }); }
+export let gpuState = (navigator as any).gpu ? 'pending' : 'none', gpuDev = null, gpuFmt = null;
+if ((navigator as any).gpu) {
+  (navigator as any).gpu.requestAdapter().then((a) => (a ? a.requestDevice() : null)).then((d) => {
+    gpuDev = d; gpuState = d ? 'ok' : 'none'; if (d) { gpuFmt = (navigator as any).gpu.getPreferredCanvasFormat(); d.lost.then(() => { gpuState = 'none'; gpuDev = null; }); }
     if (layers.some((l) => l.type === 'shader')) { for (const k in SH) delete SH[k]; buildCanvas(); renderRight(); }
   }).catch(() => { gpuState = 'none'; });
 }
@@ -42,7 +41,7 @@ function shBuildGl(rt, code) {
   const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 256, 0, gl.RGBA, gl.UNSIGNED_BYTE, shNoise());
   gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-  const U = {}; ['iResolution', 'iTime', 'iTimeDelta', 'iFrameRate', 'iFrame', 'iMouse', 'iDate', 'iParams', 'iColor1', 'iColor2', 'iOpaque', 'iChannel0', 'iChannel1', 'iChannel2', 'iChannel3', 'iChannelResolution', 'iSampleRate'].forEach((n) => { U[n] = gl.getUniformLocation(pg, n); });
+  const U: any = {}; ['iResolution', 'iTime', 'iTimeDelta', 'iFrameRate', 'iFrame', 'iMouse', 'iDate', 'iParams', 'iColor1', 'iColor2', 'iOpaque', 'iChannel0', 'iChannel1', 'iChannel2', 'iChannel3', 'iChannelResolution', 'iSampleRate'].forEach((n) => { U[n] = gl.getUniformLocation(pg, n); });
   rt.draw = (q) => {
     gl.viewport(0, 0, q.w, q.h); gl.useProgram(pg);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
@@ -65,7 +64,7 @@ async function shBuildGpu(rt, code) {
   let pipe;
   try { pipe = await dev.createRenderPipelineAsync({ layout: 'auto', vertex: { module: mod, entryPoint: 'shVs_' }, fragment: { module: mod, entryPoint: 'shFs_', targets: [{ format: gpuFmt }] }, primitive: { topology: 'triangle-list' } }); }
   catch (e) { rt.err = (e && e.message) || 'Pipeline error. Check that mainImage(fragCoord: vec2f) -> vec4f exists.'; return; }
-  const ubuf = dev.createBuffer({ size: 96, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  const ubuf = dev.createBuffer({ size: 96, usage: (globalThis as any).GPUBufferUsage.UNIFORM | (globalThis as any).GPUBufferUsage.COPY_DST });
   const bind = dev.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ubuf } }] });
   const data = new Float32Array(24);
   rt.draw = (q) => {
@@ -86,7 +85,7 @@ function shRuntime(l) {
   else shBuildGl(rt, src.code);
   return rt;
 }
-export function renderShader(l, f, w, h) {
+export function renderShader(l, f, w?, h?) {
   const rt = shRuntime(l); if (!rt.ok || !rt.draw) return rt;
   w = w || 1280; h = h || 720;
   if (rt.canvas.width !== w || rt.canvas.height !== h) { rt.canvas.width = w; rt.canvas.height = h; }

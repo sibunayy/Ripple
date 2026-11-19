@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { DUR, layers } from '../model/project';
 import { lay } from '../anim/interpolate';
 import { S, selIds } from '../state/state';

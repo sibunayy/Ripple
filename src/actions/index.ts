@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { appActions } from './map/app';
 import { proceduralActions } from './map/procedural';
 import { presetsActions } from './map/presets';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { DUR } from '../model/project';
 import { store } from '../core/store';
 import { PROPS, TF } from '../model/schema';

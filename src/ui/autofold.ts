@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { app } from '../core/dom';
 import { S } from '../state/state';
 import { layoutStage, stage, vp } from '../render/stage';

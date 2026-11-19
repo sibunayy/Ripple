@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, app } from '../core/dom';
 import { DUR, FPS } from '../model/project';
 import { S } from '../state/state';

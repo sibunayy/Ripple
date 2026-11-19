@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { DUR } from '../model/project';
 import { EX } from './dialog';
 import { rasterFrame } from './raster';
@@ -38,6 +37,7 @@ function lzw(ix) {
   return out;
 }
 class GifOut {
+  declare w: number; declare h: number; declare tIdx: number; declare parts: any[];
   constructor(w, h, pal, tIdx) {
     this.w = w; this.h = h; this.tIdx = tIdx; this.parts = [];
     const hd = [71, 73, 70, 56, 57, 97, w & 255, w >> 8, h & 255, h >> 8, 0xF7, 0, 0];

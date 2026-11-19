@@ -71,3 +71,19 @@ src/
   events/      delegate (click, change, input, pointerdown router), keyboard
   styles/      00-host.css … 11-inspector-v8.css (source order)
 ```
+
+## Phase 3: types
+
+- Removed `// @ts-nocheck` from every file. `npm run typecheck` (tsc) is clean.
+- `src/model/types.ts` describes the saved document: Layer, Prop, Key, Effect, Cel, Stroke, Marker, Project.
+  `project.ts` and `schema.ts` use these types. They describe the existing data; no field was added.
+- `strict` is still off. The prototype relies on loose JavaScript (objects grown field by field,
+  optional arguments), so strict mode is a later clean-up, not part of the port.
+- Two helper scripts in `scripts/types/` made the bulk changes, both type-only:
+  - `optional-params.mjs` marks parameters the prototype leaves out as optional.
+  - `annotate-open-objects.mjs` marks objects built up field by field as `any`.
+- Browser APIs that TypeScript's built-in types do not cover (WebGPU, `webkitAudioContext`,
+  the Claude host's `window.claude`) are reached through `as any` casts. No new packages were added.
+- Class fields on `GifOut` use `declare`, so the compiled JavaScript is unchanged.
+- Parity: 234/234 on the build. tsc is clean, and lint shows 0 errors (24 style warnings carried over
+  from the prototype).

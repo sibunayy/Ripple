@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { lay } from '../../anim/interpolate';
 import { ANIMS, S } from '../../state/state';
 import { REP_DEF } from '../../anim/pose';

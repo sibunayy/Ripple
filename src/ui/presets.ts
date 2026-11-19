@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { esc } from '../core/dom';
 import { store } from '../core/store';
 import { ic } from './icons';

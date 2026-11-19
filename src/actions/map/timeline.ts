@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S } from '../../state/state';
 import { renderTL } from '../../ui/timeline';
 import { toast } from '../../ui/toast';

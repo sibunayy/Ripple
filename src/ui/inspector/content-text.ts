@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { FONTS, WNAME, fontWeights, snapW } from '../../render/text';
 import { esc } from '../../core/dom';
 import { grid2, pf, selH } from './controls';

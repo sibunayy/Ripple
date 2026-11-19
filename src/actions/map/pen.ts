@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { penFinish, penUndo } from '../../gestures/canvas';
 import { S } from '../../state/state';
 import { drawOverlay } from '../../drawing/overlay';

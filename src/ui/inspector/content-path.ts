@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { capJoin, chip, dashF, trimRow } from './paint';
 import { grid2, pf } from './controls';
 

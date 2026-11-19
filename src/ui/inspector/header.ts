@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ic } from '../icons';
 import { S, selIds } from '../../state/state';
 import { TYPE_NAME } from '../left-panel';

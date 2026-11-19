@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ic } from '../icons';
 import { grid2, pf, propRow, selH } from './controls';
 import { hasStroke } from '../../render/shapes';

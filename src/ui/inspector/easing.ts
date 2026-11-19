@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { esc } from '../../core/dom';
 import { ic } from '../icons';
 import { EASES, EASE_NAMES, EASE_ROW, earr, easeGlyph, ename } from '../../anim/easing';

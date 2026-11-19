@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { lay } from '../../anim/interpolate';
 import { S, selIds } from '../../state/state';
 import { saveProj } from '../../model/project';

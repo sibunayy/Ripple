@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $ } from '../core/dom';
 import { layers } from '../model/project';
 import { lay } from '../anim/interpolate';
@@ -29,7 +28,7 @@ export function listen() {
     const ar = document.activeElement && document.activeElement.closest && document.activeElement.closest('.lrow[data-v]');
     if (e.altKey && ar && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
-      const l = lay(ar.dataset.v), i = layers.indexOf(l), j = i + (e.key === 'ArrowUp' ? -1 : 1);
+      const l = lay((ar as HTMLElement).dataset.v), i = layers.indexOf(l), j = i + (e.key === 'ArrowUp' ? -1 : 1);
       if (l && j >= 0 && j < layers.length) { layers.splice(i, 1); layers.splice(j, 0, l); commit('Reorder layers'); buildCanvas(); renderAll(); const nr = $(`#lpanel .lrow[data-v="${l.id}"]`); if (nr) nr.focus(); }
       return;
     }

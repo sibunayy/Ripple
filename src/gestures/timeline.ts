@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, $$ } from '../core/dom';
 import { DUR, layers } from '../model/project';
 import { TF } from '../model/schema';

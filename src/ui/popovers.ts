@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, app, esc } from '../core/dom';
 import { HUES, layers } from '../model/project';
 import { ic } from './icons';
@@ -70,7 +69,7 @@ export function renderPop() {
     pos = { left: Math.max(8, Math.min(S.pop.x - a.left - 135, a.width - 280)), top: Math.max(8, S.pop.y - a.top - 300) };
   } else if (S.pop.type === 'fx') {
     const b = $('#rpanel [data-act=addfx]').getBoundingClientRect();
-    const groups = [['Stylise', ['glow', 'bloom', 'shadow', 'longshadow', 'outline', 'halftone', 'pixelate', 'grain', 'vignette']], ['Blur', ['blur', 'dirblur']], ['Distort', ['ripple', 'roughen', 'rgbsplit', 'glitch']], ['Colour', ['hue', 'sat', 'bright', 'tint', 'duotone', 'posterize', 'invert']], ['Time', ['postime']]];
+    const groups: [string, string[]][] = [['Stylise', ['glow', 'bloom', 'shadow', 'longshadow', 'outline', 'halftone', 'pixelate', 'grain', 'vignette']], ['Blur', ['blur', 'dirblur']], ['Distort', ['ripple', 'roughen', 'rgbsplit', 'glitch']], ['Colour', ['hue', 'sat', 'bright', 'tint', 'duotone', 'posterize', 'invert']], ['Time', ['postime']]];
     html = `<div class="pop menu" role="menu" aria-label="Add effect" style="max-height:${a.height - 24}px;overflow:auto">${groups.map(([g, ids]) => `<div class="mlbl">${g}</div>${ids.map((id) => `<button class="mi" role="menuitem" data-act="fxadd" data-v="${id}">${FXDEF[id].name}</button>`).join('')}`).join('')}</div>`;
     pos = { right: Math.max(8, a.right - b.right), top: Math.max(8, Math.min(b.bottom - a.top + 6, a.height - 470)) };
   } else if (S.pop.type === 'fxm') {

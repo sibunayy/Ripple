@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { layers } from '../model/project';
 import { bez, earr } from './easing';
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $$ } from '../core/dom';
 import { ic } from './icons';
 import { EASES, bez } from '../anim/easing';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { DUR, FPS, layers, markers, projName } from '../model/project';
 import { lay } from '../anim/interpolate';
 import { hasStroke, pathSegs, polyOf } from '../render/shapes';
@@ -27,7 +26,7 @@ function lprop(vals, ip) {
   return { a: 1, k };
 }
 function lgeom(l) {
-  const sh = (P, closed, segs) => ({ ty: 'sh', ks: { a: 0, k: { c: closed, v: P.map((p) => [lr(p[0]), lr(p[1])]), i: segs ? segs.i : P.map(() => [0, 0]), o: segs ? segs.o : P.map(() => [0, 0]) } } });
+  const sh = (P, closed, segs?) => ({ ty: 'sh', ks: { a: 0, k: { c: closed, v: P.map((p) => [lr(p[0]), lr(p[1])]), i: segs ? segs.i : P.map(() => [0, 0]), o: segs ? segs.o : P.map(() => [0, 0]) } } });
   switch (l.type) {
     case 'rect': { const w = l.w || 280, h = l.h || 180; return { g: { ty: 'rc', p: { a: 0, k: [0, 0] }, s: { a: 0, k: [w, h] }, r: { a: 0, k: Math.min(l.cr ?? 24, w / 2, h / 2) }, d: 1 }, bb: [w, h] }; }
     case 'ellipse': case 'ring': return { g: { ty: 'el', p: { a: 0, k: [0, 0] }, s: { a: 0, k: [l.r * 2, l.r * 2] }, d: 1 }, bb: [l.r * 2, l.r * 2] };
@@ -43,7 +42,7 @@ function lgeom(l) {
   }
   return null;
 }
-function lpaint(l, bb, trim, part) {
+function lpaint(l, bb, trim, part?) {
   const items = [], sw = l.type === 'ring' ? (l.sw ?? 14) : l.type === 'line' ? (l.sw ?? 12) : l.type === 'path' ? (l.sw ?? 8) : (l.sw || 0);
   const fillOn = l.type === 'path' ? l.fill === true && l.closed : !['ring', 'line'].includes(l.type) && l.fill !== false;
   if (fillOn && part !== 'stroke') {
@@ -53,7 +52,7 @@ function lpaint(l, bb, trim, part) {
     } else items.push({ ty: 'fl', c: { a: 0, k: [...lrgb(l.hue), 1] }, o: { a: 0, k: 100 }, r: 1 });
   }
   if (hasStroke(l) && sw > 0 && part !== 'fill') {
-    const st = { ty: 'st', c: { a: 0, k: [...lrgb(l.type === 'ring' || l.type === 'path' || l.type === 'line' && !l.sw ? l.hue : (l.sc || '#ffffff')), 1] }, o: { a: 0, k: 100 }, w: { a: 0, k: sw }, lc: { butt: 1, round: 2, square: 3 }[l.cap || 'round'], lj: { miter: 1, round: 2, bevel: 3 }[l.join || 'round'], ml: 4 };
+    const st: any = { ty: 'st', c: { a: 0, k: [...lrgb(l.type === 'ring' || l.type === 'path' || l.type === 'line' && !l.sw ? l.hue : (l.sc || '#ffffff')), 1] }, o: { a: 0, k: 100 }, w: { a: 0, k: sw }, lc: { butt: 1, round: 2, square: 3 }[l.cap || 'round'], lj: { miter: 1, round: 2, bevel: 3 }[l.join || 'round'], ml: 4 };
     if (l.dash > 0 && !trim) st.d = [{ n: 'd', nm: 'dash', v: { a: 0, k: l.dash } }, { n: 'g', nm: 'gap', v: { a: 0, k: Math.round(l.dash * 1.2) } }, { n: 'o', nm: 'offset', v: { a: 0, k: 0 } }];
     items.push(st);
   }
@@ -80,7 +79,7 @@ export async function exportLottie(job) {
         P.push([lr(m.e), lr(m.f)]); R.push(lr(a)); const s = lr(Math.hypot(m.a, m.b) * 100), sy = m.a * m.d - m.b * m.c < 0 ? -s : s; Sc.push([s, sy]); O.push(lr(Math.max(0, Math.min(100, q.o)), 1));
         TS.push(lr(Math.max(0, Math.min(100, Math.min(q.ts, q.te))))); TE.push(lr(Math.max(0, Math.min(100, Math.max(q.ts, q.te)))));
       }
-      const L = { ddd: 0, ind: idx++, nm: n > 1 ? `${l.name} ${c + 1}` : l.name, sr: 1, ip, op, st: 0, bm: LBM[l.blend || 'normal'] || 0, ao: 0,
+      const L: any = { ddd: 0, ind: idx++, nm: n > 1 ? `${l.name} ${c + 1}` : l.name, sr: 1, ip, op, st: 0, bm: LBM[l.blend || 'normal'] || 0, ao: 0,
         ks: { o: lprop(O, ip), r: lprop(R, ip), p: lprop(P, ip), a: { a: 0, k: [0, 0] }, s: lprop(Sc, ip) } };
       if (src && c === 0) L.tt = LTT[l.matte] || 1;
       if (isSrc) L.td = 1;
@@ -95,7 +94,7 @@ export async function exportLottie(job) {
         if (l.grad) warn.add('gradient text');
       } else if (l.type === 'solid') { L.ty = 1; L.sc = l.hue; L.sw = 1920; L.sh = 1080; L.ks.a = { a: 0, k: [960, 540] }; }
       else if (l.type === 'image') {
-        let p = ''; try { const b = await (await fetch(l.src)).blob(); p = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); }); } catch { warn.add('an image that could not be read'); continue; }
+        let p = ''; try { const b = await (await fetch(l.src)).blob(); p = await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result as string); fr.readAsDataURL(b); }); } catch { warn.add('an image that could not be read'); continue; }
         const id = 'img_' + assets.length; assets.push({ id, w: Math.round(l.w), h: Math.round(l.h), u: '', p, e: 1 });
         L.ty = 2; L.refId = id; L.ks.a = { a: 0, k: [lr(l.w / 2), lr(l.h / 2)] };
       } else {
@@ -113,7 +112,7 @@ export async function exportLottie(job) {
     job.set((li + 1) / layers.length * 95, `Layer ${li + 1} of ${layers.length}`);
     await new Promise((r) => setTimeout(r, 0));
   }
-  const doc = { v: '5.7.4', fr: FPS, ip: 0, op: DUR, w: 1920, h: 1080, nm: projName, ddd: 0, assets, layers: out, markers: markers.map((m) => ({ tm: m.f, cm: m.name, dr: 0 })) };
+  const doc: any = { v: '5.7.4', fr: FPS, ip: 0, op: DUR, w: 1920, h: 1080, nm: projName, ddd: 0, assets, layers: out, markers: markers.map((m) => ({ tm: m.f, cm: m.name, dr: 0 })) };
   if (fonts.length) doc.fonts = { list: fonts };
   job.warn = [...warn];
   return new Blob([JSON.stringify(doc)], { type: 'application/json' });

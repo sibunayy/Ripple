@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { HT_TILE, VIG, hsl, rippleBF } from './defs';
 
 export function fxDefs(l) {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { DUR, FPS, layers } from '../model/project';
 import { lay } from '../anim/interpolate';
 import { S } from '../state/state';
@@ -15,7 +14,7 @@ export function waveSvg(L) {
   return `<svg class="wave" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 function audioWindow(l) { const a = l.inP ?? 0, b = Math.min(l.outP ?? DUR, a + (l.adur || 0) * FPS); return [a, b]; }
-export function syncAudio(force) {
+export function syncAudio(force?) {
   for (const l of layers) {
     if (l.type !== 'audio') continue; const el = aud[l.id]; if (!el) continue;
     el.volume = Math.max(0, Math.min(1, (l.vol ?? 100) / 100)); el.muted = !!l.mute || !l.vis;
@@ -30,7 +29,7 @@ export function importAudio(file) {
   el.addEventListener('loadedmetadata', async () => {
     const adur = el.duration || 1; let wave = [];
     try {
-      const AC = window.AudioContext || window.webkitAudioContext, ac = new AC(), buf = await ac.decodeAudioData(await file.arrayBuffer()); ac.close && ac.close();
+      const AC = window.AudioContext || (window as any).webkitAudioContext, ac = new AC(), buf = await ac.decodeAudioData(await file.arrayBuffer()); ac.close && ac.close();
       const ch = buf.getChannelData(0), N = 400, step = Math.max(1, Math.floor(ch.length / N));
       for (let i = 0; i < N; i++) { let mx = 0; for (let j = i * step, e = Math.min(ch.length, j + step); j < e; j += 8) { const v = Math.abs(ch[j]); if (v > mx) mx = v; } wave.push(mx); }
       const top = Math.max(...wave, .01); wave = wave.map((v) => Math.round(v / top * 100) / 100);

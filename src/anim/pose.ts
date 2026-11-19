@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { FPS } from '../model/project';
 import { lay, val } from './interpolate';
 

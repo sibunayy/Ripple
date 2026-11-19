@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S, isDrawTool, isSelTool } from '../../state/state';
 import { drawOverlay } from '../../drawing/overlay';
 import { SHAPES, renderStrips } from '../../ui/strips';

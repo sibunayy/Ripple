@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { esc } from '../core/dom';
 import { textSvg } from './text';
 import { BLANK } from '../drawing/cels';

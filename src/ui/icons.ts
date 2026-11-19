@@ -1,4 +1,3 @@
-// @ts-nocheck
 
 /* ---------- icons (stroke, 24 grid) ---------- */
 const P = {

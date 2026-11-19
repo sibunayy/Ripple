@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S } from '../../state/state';
 import { store } from '../../core/store';
 import { buildCanvas, gEls, layoutStage, stage, vp } from '../../render/stage';

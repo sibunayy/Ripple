@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { S } from '../state/state';
 
 /* Composition overlays: title/action safe areas and a rule-of-thirds grid. Drawn over the stage, never exported. */

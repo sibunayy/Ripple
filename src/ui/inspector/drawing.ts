@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { DUR } from '../../model/project';
 import { ic } from '../icons';
 import { S } from '../../state/state';

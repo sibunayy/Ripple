@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, esc } from '../core/dom';
 import { projName } from '../model/project';
 import { ic } from './icons';
@@ -20,7 +19,7 @@ export function renderTop() {
 /* Project name field hugs its text so the fps / resolution meta sits right beside it. */
 function fitName() {
   const n = $('#pname'); if (!n) return;
-  const cs = getComputedStyle(n), c = fitName.c || (fitName.c = document.createElement('canvas').getContext('2d'));
+  const cs = getComputedStyle(n), c = (fitName as any).c || ((fitName as any).c = document.createElement('canvas').getContext('2d'));
   c.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   n.style.width = Math.ceil(c.measureText(n.value || ' ').width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + 3) + 'px';
 }
@@ -32,6 +31,6 @@ function syncHist() {
 }
 /** Registers this module's event listeners. main.ts calls it once, in the original order. */
 export function listen() {
-  document.addEventListener('input', (e) => { if (e.target && e.target.id === 'pname') fitName(); if (e.target && e.target.id === 'shcode') S.shDraft = e.target.value; });
+  document.addEventListener('input', (e) => { if (e.target && (e.target as any).id === 'pname') fitName(); if (e.target && (e.target as any).id === 'shcode') S.shDraft = (e.target as any).value; });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitName);
 }

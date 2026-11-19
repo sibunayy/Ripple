@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, app, esc } from '../core/dom';
 import { DUR, layers, markers } from '../model/project';
 import { ic } from './icons';

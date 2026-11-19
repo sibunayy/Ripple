@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { propRow } from './controls';
 import { ic } from '../icons';
 

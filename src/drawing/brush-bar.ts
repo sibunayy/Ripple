@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, app } from '../core/dom';
 import { ic } from '../ui/icons';
 import { BPRE, DRAWMODES, S, isDrawTool } from '../state/state';

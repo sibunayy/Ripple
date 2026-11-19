@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, esc } from '../core/dom';
 import { DUR } from '../model/project';
 import { S } from '../state/state';
@@ -26,7 +25,7 @@ export async function runExport() {
   if (S.playing) play(false);
   const fmt = EX.fmt, res = EX.res[fmt] || 1080, fps = EX.fps[fmt] || 30;
   const h = res % 2 ? res + 1 : res, w = Math.round(h * 16 / 9 / 2) * 2, nF = Math.round(DUR / 30 * fps);
-  const job = exportJob = { status: 'run', p: 0, text: 'Starting', cancel: false, fmt, name: `${exName()}${fmt === 'PNG' ? '-png' : ''}.${{ GIF: 'gif', PNG: 'zip', Lottie: 'json' }[fmt] || 'mp4'}`, dims: fmt === 'Lottie' ? '1920×1080 vector' : `${w}×${h}`,
+  const job: any = exportJob = { status: 'run', p: 0, text: 'Starting', cancel: false, fmt, name: `${exName()}${fmt === 'PNG' ? '-png' : ''}.${{ GIF: 'gif', PNG: 'zip', Lottie: 'json' }[fmt] || 'mp4'}`, dims: fmt === 'Lottie' ? '1920×1080 vector' : `${w}×${h}`,
     set(p, t) { this.p = p; this.text = t; const bar = $('#dlg .prog i'); if (bar) { bar.style.width = p + '%'; $('#dlg .job .tc').textContent = Math.round(p) + '%'; $('#dlg .jtxt').textContent = t; } } };
   renderDialog();
   const f0 = S.f;
@@ -40,7 +39,7 @@ export async function runExport() {
 }
 export const exSave = async () => {
   const j = exportJob; if (!j || !j.blob) return;
-  let dl = null; try { dl = window.claude && await window.claude.use('downloads'); } catch { dl = null; }
+  let dl = null; try { dl = (window as any).claude && await (window as any).claude.use('downloads'); } catch { dl = null; }
   if (dl) { try { await dl.save({ filename: j.name, data: j.blob }); } catch (e) { if (e && e.code !== 'declined') toast('Could not save the file' + (e && e.message ? ': ' + e.message : '')); } return; }
   const a = document.createElement('a'); a.href = j.url; a.download = j.name; document.body.appendChild(a); a.click(); a.remove();
 };

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, app } from '../core/dom';
 import { HUES, layers } from '../model/project';
 import { st } from '../model/schema';
@@ -10,8 +9,8 @@ import { toast } from '../ui/toast';
 import { renderAll } from '../ui/layout';
 
 /* ---------- actions ---------- */
-export let nameCount = {};
-export function newLayer(type, extra = {}) {
+export let nameCount: Record<string, number> = {};
+export function newLayer(type, extra: any = {}) {
   nameCount[type] = (nameCount[type] || 0) + 1;
   const NEWD = { draw: { cels: [] }, rect: { w: 280, h: 180, cr: 24 }, star: { n: 5, ir: 43 }, polygon: { n: 5 }, line: { w: 420, sw: 12 }, ring: { r: 110, sw: 14 }, ellipse: { r: 90 } };
   const base = { draw: 'Drawing', path: 'Path', line: 'Line', ring: 'Ring', text: 'Text', rect: 'Rectangle', ellipse: 'Ellipse', star: 'Star', polygon: 'Polygon', solid: 'Solid', null: 'Null', adjust: 'Adjustment', shader: 'Shader', comp: 'Comp', image: 'Image' }[type];

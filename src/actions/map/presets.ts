@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { applyMine, applyPreset, savePreset } from '../presets';
 import { store } from '../../core/store';
 import { myPresets } from '../../ui/presets';

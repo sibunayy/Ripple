@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { copyKeys, pasteKeys, selectedKeyObjs } from '../../anim/clipboard';
 import { S } from '../../state/state';
 import { animated, keyAt, lay, val } from '../../anim/interpolate';

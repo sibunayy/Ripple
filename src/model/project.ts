@@ -1,9 +1,9 @@
-// @ts-nocheck
 import { an, st } from './schema';
+import type { Layer, Marker } from './types';
 
-export const FPS = 30; export let DUR = 150; export let projName = 'Logo sting'; export let compBg = null;
+export const FPS = 30; export let DUR = 150; export let projName = 'Logo sting'; export let compBg: string | null = null;
 export const HUES = ['#4aa8ff', '#bfe3f5', '#4fd1c5', '#ef6f7f', '#b9d65a', '#7f9bd6'];
-export let layers = [
+export let layers: Layer[] = [
   { id: 'tag', name: 'motion made simple', type: 'text', hue: HUES[1], text: 'motion made simple', size: 64, weight: 500, track: 6, vis: true, lock: false, fx: [],
     p: { x: st(960), y: an([62, 760, 'out'], [86, 718]), scale: st(100), rot: st(0), op: an([62, 0, 'out'], [82, 100]) } },
   { id: 'logo', name: 'YOUR LOGO', type: 'text', hue: HUES[0], text: 'YOUR LOGO', size: 150, weight: 800, track: -2, vis: true, lock: false, fx: [{ id: 'glow', name: 'Glow', on: true, radius: 18, amount: 70 }],
@@ -14,7 +14,7 @@ export let layers = [
     p: { x: st(960), y: st(330), scale: an([0, 40, 'out'], [30, 100]), rot: an([0, -120, 'inout'], [60, 0]), op: an([0, 0], [12, 100]) } },
 ];
 layers.forEach((l) => { l.p.ax = l.p.ax || st(0); l.p.ay = l.p.ay || st(0); l.p.ts = l.p.ts || st(0); l.p.te = l.p.te || st(l.type === 'ring' ? 70 : 100); });
-export const markers = [{ f: 30, name: 'Logo hit' }, { f: 86, name: 'Tagline' }];
+export const markers: Marker[] = [{ f: 30, name: 'Logo hit' }, { f: 86, name: 'Tagline' }];
 try {
   const pj = JSON.parse(localStorage.getItem('rfp-project') || 'null');
   if (pj && Array.isArray(pj.layers) && pj.layers.length) {

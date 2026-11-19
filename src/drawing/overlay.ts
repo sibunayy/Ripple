@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $ } from '../core/dom';
 import { animated, lay } from '../anim/interpolate';
 import { S, selIds } from '../state/state';

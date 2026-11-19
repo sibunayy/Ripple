@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $ } from '../core/dom';
 import { FPS, layers } from '../model/project';
 import { S } from '../state/state';
@@ -19,4 +18,4 @@ function loop(t) {
   if (S.perf) { const avg = fpsAcc.reduce((a, b) => a + b, 0) / fpsAcc.length; $('#hud').textContent = `${avg ? Math.round(1 / avg) : 60} fps · ${layers.length} layers · frame ${Math.floor(S.f)}`; }
   raf = requestAnimationFrame(loop);
 }
-export function play(on) { S.playing = on ?? !S.playing; lastT = 0; cancelAnimationFrame(raf); if (S.playing) { foldStart('play'); raf = requestAnimationFrame(loop); } else { S.f = Math.round(S.f); foldEnd('play'); } syncAudio(true); renderTL(); setPF(); placeSel(); updateFields(); }
+export function play(on?) { S.playing = on ?? !S.playing; lastT = 0; cancelAnimationFrame(raf); if (S.playing) { foldStart('play'); raf = requestAnimationFrame(loop); } else { S.f = Math.round(S.f); foldEnd('play'); } syncAudio(true); renderTL(); setPF(); placeSel(); updateFields(); }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { FPS } from '../../model/project';
 import { ic } from '../icons';
 import { GROUPS, PROPS } from '../../model/schema';
@@ -18,7 +17,7 @@ function fldBox(l, p, axis) {
 }
 export function grpState(l, g) {
   const ps = GROUPS[g].ps, anim = ps.some((p) => animated(l.p[p])), on = anim && ps.some((p) => keyAt(l.p[p], S.f) >= 0);
-  const ts = [...new Set(ps.flatMap((p) => animated(l.p[p]) ? l.p[p].keys.map((k) => k.t) : []))].sort((a, b) => a - b);
+  const ts = [...new Set<number>(ps.flatMap((p) => animated(l.p[p]) ? l.p[p].keys.map((k) => k.t) : []))].sort((a, b) => a - b);
   return { anim, on, prev: ts.filter((t) => t < S.f - .5).pop(), next: ts.find((t) => t > S.f + .5) };
 }
 export const kdLabel = (n, st2) => st2.anim ? (st2.on ? `Remove ${n} keyframe` : `Add ${n} keyframe`) : `Animate ${n}`;

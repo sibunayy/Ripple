@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $, app, root } from '../core/dom';
 import { DUR } from '../model/project';
 import { store } from '../core/store';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { $ } from '../core/dom';
 import { HUES, layers } from '../model/project';
 import { st } from '../model/schema';

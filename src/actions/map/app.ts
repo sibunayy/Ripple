@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { commit, redo, undo } from '../../state/history';
 import { S } from '../../state/state';
 import { renderTop } from '../../ui/topbar';
