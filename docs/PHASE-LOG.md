@@ -38,3 +38,36 @@ These are recorded so that nobody "fixes" them by accident during the port. Fix 
 ### Test change
 
 - The export Cancel test now waits up to 30 s for the cancel to take effect, because the export checks for Cancel between frames and one 4K frame can take several seconds on the dev server.
+
+## Phase 2: split into modules (done)
+
+- The script is now 92 TypeScript modules in `src/` (layout below). The code inside each function is unchanged; the split was done by tools in `scripts/split/` that read the code's structure with the TypeScript checker, not by hand.
+- Shared document state stays in one place: `layers`, `markers`, `DUR`, `projName` and `compBg` live in `model/project.ts`; the UI state `S` in `state/state.ts`. Undo and redo still replace `layers`, and every module reads the current value.
+- A variable that other modules change gets a small setter (for example `setLayers`, `setDragging`, `setSuppressClick`). The setters only assign; nothing else changed.
+- Event listeners are registered by a `listen()` function per module. `main.ts` calls them in the original order, then boots the app exactly as before.
+- The 153 tap actions (`A`, keyed by `data-act`) are split into 13 files in `actions/map/` (app, layers, inspector, keys, effects, timeline, drawing, export, pen, presets, procedural, shader, view) and merged back into one map in `actions/index.ts`.
+- The inspector follows HANDOFF section 8: `ui/inspector/header.ts`, `transform.ts`, `layer.ts`, `content-text.ts`, `content-shape.ts`, `content-path.ts`, `content-audio.ts`, `paint.ts`, `extras.ts`, `controls.ts`, assembled by `props-view.ts`.
+- New check: `tests/parity/10-dom-parity.spec.ts` loads the legacy file and the build side by side and requires the same HTML in the inspector (all sections unfolded), timeline, stage, top bar and strips, for the demo and after inserting each of 13 layer types.
+- ESLint (`npm run lint`) reports no undefined names, so every module imports what it uses. Style findings in the prototype's own code are kept as warnings.
+- Result: 234 of 234 tests pass on the legacy file, the build and the dev server. No circular-import errors at runtime.
+
+```
+src/
+  main.ts                 entry: styles, modules, listeners, boot
+  core/        dom ($, $$, esc), store (rfp- localStorage)
+  model/       schema (PROPS, GROUPS), project (layers, load, save)
+  state/       state (S), history (undo/redo), selection
+  anim/        easing, interpolate (val), keys, clipboard, pose
+  render/      stage, shapes, text, guides
+  fx/          defs, filters
+  shader/      presets, runtime (WebGPU / WebGL2), ui
+  drawing/     cels, raster, ink, brush-bar, overlay
+  export/      dialog, raster, gif, png, zip, lottie, mp4
+  playback/    loop, audio
+  ui/          topbar, strips, left-panel, presets, floats, timeline, graph, popovers, color-picker,
+               dialog, toast, layout, autofold, text-animators, icons, inspector/*
+  actions/     index (A), map/*, layers, presets, align
+  gestures/    canvas, drags, reorder, handles, timeline, cel-timeline, area-select
+  events/      delegate (click, change, input, pointerdown router), keyboard
+  styles/      00-host.css … 11-inspector-v8.css (source order)
+```

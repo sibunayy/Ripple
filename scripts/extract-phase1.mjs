@@ -45,7 +45,7 @@ ${meta}
 <!-- Keep an element before #app: the prototype's <style> sat here, so #app is not :first-child (the .anim:first-child rule must not match it). -->
 <noscript>RippleFlow needs JavaScript.</noscript>
 ${dom}
-<script type="module" src="/src/legacy-main.ts"></script>
+<script type="module" src="/src/main.ts"></script>
 </body></html>
 `);
 console.log({ start, scr, end, cssFiles: Object.keys(css).length, jsLines: js.split('\n').length });
